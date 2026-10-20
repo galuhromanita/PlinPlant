@@ -2,10 +2,36 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'home_screen.dart';
+import '../main.dart';
+import '../providers/user_session.dart';
 
-class LoginScreen extends StatelessWidget {
+// ============================================================
+// LOGIN SCREEN — Screen #2
+// [Fix] Tidak overflow di layar kecil — pakai SingleChildScrollView
+// ============================================================
+
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  bool _isLoading = false;
+
+  Future<void> _handleGoogleLogin() async {
+    setState(() => _isLoading = true);
+
+    // Async: simulasi proses login Google
+    await UserSession().loginWithGoogle();
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    // Navigasi ke home menggunakan named route
+    Navigator.of(context).pushReplacementNamed(AppRoutes.home);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -20,264 +46,270 @@ class LoginScreen extends StatelessWidget {
       backgroundColor: Colors.white,
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final screenH = constraints.maxHeight;
           final screenW = constraints.maxWidth;
+          final screenH = constraints.maxHeight;
 
-          // Responsif
-          final logoSize = (screenW * 0.22).clamp(70.0, 100.0);
-          final titleSize = (screenW * 0.100).clamp(28.0, 42.0);
+          final logoSize = (screenW * 0.22).clamp(60.0, 100.0);
+          final titleSize = (screenW * 0.10).clamp(26.0, 42.0);
           final subtitleSize = (screenW * 0.038).clamp(12.0, 16.0);
-          final btnFontSize = (screenW * 0.042).clamp(13.5, 17.0);
+          final btnFontSize = (screenW * 0.042).clamp(13.0, 17.0);
           final hPad = (screenW * 0.07).clamp(20.0, 40.0);
           final privFontSize = (screenW * 0.028).clamp(10.0, 12.5);
 
           return Stack(
             children: [
-              // =====================================================
-              // GELOMBANG HIJAU DI POJOK KANAN ATAS
-              // =====================================================
+              // ── Gelombang hijau pojok kanan atas ───────────────
               Positioned(
                 top: 0,
                 right: 0,
                 child: IgnorePointer(
                   child: CustomPaint(
-                    size: Size(
-                      screenW * 0.78,
-                      screenH * 0.40,
-                    ),
+                    size: Size(screenW * 0.78, screenH * 0.40),
                     painter: _TopWavePainter(),
                   ),
                 ),
               ),
 
-              // =====================================================
-              // ISI HALAMAN LOGIN
-              // =====================================================
-              Column(
-                children: [
-                  // ── BAGIAN ATAS: logo + teks + tombol ──────────────
-                  Expanded(
-                    flex: 51,
-                    child: SafeArea(
-                      bottom: false,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: hPad),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            SizedBox(height: screenH * 0.10),
-
-                            // LOGO
-                            Center(
-                              child: Image.asset(
-                                'assets/icon/plinplant_logo_green.png',
-                                width: logoSize,
-                                height: logoSize,
-                                fit: BoxFit.contain,
-                              ),
-                            ),
-
-                            SizedBox(height: screenH * 0.020),
-
-                            // NAMA APP
-                            Text(
-                              'PlinPlant',
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.poppins(
-                                color: const Color(0xFF1A3C34),
-                                fontSize: titleSize,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -1.5,
-                                height: 1.0,
-                              ),
-                            ),
-
-                            SizedBox(height: screenH * 0.015),
-
-                            // HEADING
-                            Text(
-                              'Selamat datang!',
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.poppins(
-                                color: const Color(0xFF1A3C34),
-                                fontSize:
-                                    (screenW * 0.055).clamp(18.0, 24.0),
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-
-                            SizedBox(height: screenH * 0.006),
-
-                            // SUBTITLE
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text(
-                                'Masuk untuk melanjutkan ke aplikasi PlinPlant.',
-                                textAlign: TextAlign.center,
-                                style: GoogleFonts.poppins(
-                                  color: const Color(0xFF6B7280),
-                                  fontSize: subtitleSize,
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                            ),
-
-                            SizedBox(height: screenH * 0.030),
-
-                            // =================================================
-                            // TOMBOL GOOGLE
-                            // =================================================
-                            SizedBox(
-                              width: double.infinity,
-                              height: (screenH * 0.072).clamp(50.0, 62.0),
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  Navigator.of(context).pushReplacement(
-                                    MaterialPageRoute(
-                                      builder: (_) => const HomeScreen(),
-                                    ),
-                                  );
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF4E6B50),
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  elevation: 0,
-                                ),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.center,
-                                  children: [
-                                    Container(
-                                      width: 28,
-                                      height: 28,
-                                      decoration: const BoxDecoration(
-                                        color: Colors.white,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      padding: const EdgeInsets.all(5),
-                                      child: Image.network(
-                                        'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png',
-                                        fit: BoxFit.contain,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Text(
-                                      'Lanjutkan dengan Google',
-                                      style: GoogleFonts.poppins(
-                                        color: Colors.white,
-                                        fontSize: btnFontSize,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-
-                            SizedBox(height: screenH * 0.015),
-
-                            // =================================================
-                            // GARIS PEMBATAS
-                            // =================================================
-                            Row(
+              // [Fix] SafeArea + SingleChildScrollView agar tidak overflow
+              SafeArea(
+                child: SingleChildScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  child: ConstrainedBox(
+                    // Minimum height = full screen agar tombol tetap
+                    // di posisi yang baik di layar besar
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight -
+                          MediaQuery.of(context).padding.top -
+                          MediaQuery.of(context).padding.bottom,
+                    ),
+                    child: IntrinsicHeight(
+                      child: Column(
+                        children: [
+                          // ── Bagian atas: logo + teks + tombol ───
+                          Padding(
+                            padding:
+                                EdgeInsets.symmetric(horizontal: hPad),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                const Expanded(
-                                  child: Divider(
-                                    color: Color(0xFFE5E7EB),
-                                    thickness: 1,
+                                SizedBox(
+                                    height: (screenH * 0.09).clamp(
+                                        24.0, 80.0)),
+
+                                // Logo
+                                Center(
+                                  child: Image.asset(
+                                    'assets/icon/plinplant_logo_green.png',
+                                    width: logoSize,
+                                    height: logoSize,
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (_, _, _) => Icon(
+                                      Icons.eco_rounded,
+                                      size: logoSize,
+                                      color: const Color(0xFF4FA066),
+                                    ),
                                   ),
                                 ),
-                                SizedBox(width: screenW * 0.1),
-                                const Expanded(
-                                  child: Divider(
-                                    color: Color(0xFFE5E7EB),
-                                    thickness: 1,
+                                SizedBox(
+                                    height:
+                                        (screenH * 0.018).clamp(8.0, 20.0)),
+
+                                // Nama App
+                                Text(
+                                  'PlinPlant',
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.poppins(
+                                    color: const Color(0xFF1A3C34),
+                                    fontSize: titleSize,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -1.5,
+                                    height: 1.0,
+                                  ),
+                                ),
+                                SizedBox(
+                                    height:
+                                        (screenH * 0.012).clamp(6.0, 16.0)),
+
+                                Text(
+                                  'Selamat datang!',
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.poppins(
+                                    color: const Color(0xFF1A3C34),
+                                    fontSize: (screenW * 0.055)
+                                        .clamp(16.0, 24.0),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                SizedBox(
+                                    height:
+                                        (screenH * 0.005).clamp(4.0, 8.0)),
+
+                                Text(
+                                  'Masuk untuk melanjutkan ke aplikasi PlinPlant.',
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.poppins(
+                                    color: const Color(0xFF6B7280),
+                                    fontSize: subtitleSize,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
+                                SizedBox(
+                                    height:
+                                        (screenH * 0.028).clamp(16.0, 36.0)),
+
+                                // ── Tombol Login Google ────────────
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: (screenH * 0.068).clamp(48.0, 62.0),
+                                  child: ElevatedButton(
+                                    onPressed: _isLoading
+                                        ? null
+                                        : _handleGoogleLogin,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor:
+                                          const Color(0xFF4E6B50),
+                                      foregroundColor: Colors.white,
+                                      disabledBackgroundColor: const Color(
+                                              0xFF4E6B50)
+                                          .withValues(alpha: 0.7),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(12),
+                                      ),
+                                      elevation: 0,
+                                    ),
+                                    child: _isLoading
+                                        ? const SizedBox(
+                                            width: 24,
+                                            height: 24,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2.5,
+                                            ),
+                                          )
+                                        : Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Container(
+                                                width: 28,
+                                                height: 28,
+                                                decoration:
+                                                    const BoxDecoration(
+                                                  color: Colors.white,
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                padding:
+                                                    const EdgeInsets.all(5),
+                                                child: Image.network(
+                                                  'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png',
+                                                  fit: BoxFit.contain,
+                                                  errorBuilder: (_, __,
+                                                          ___) =>
+                                                      const Icon(
+                                                    Icons.g_mobiledata,
+                                                    size: 18,
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Text(
+                                                'Lanjutkan dengan Google',
+                                                style: GoogleFonts.poppins(
+                                                  color: Colors.white,
+                                                  fontSize: btnFontSize,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                  ),
+                                ),
+                                SizedBox(
+                                    height:
+                                        (screenH * 0.014).clamp(8.0, 20.0)),
+                              ],
+                            ),
+                          ),
+
+                          // ── Gambar tanaman — mengisi sisa ruang ─
+                          Expanded(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(
+                                minHeight: 120,
+                              ),
+                              child: Image.asset(
+                                'assets/images/gambar_login.png',
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                                alignment: Alignment.topCenter,
+                                errorBuilder: (_, _, _) => const SizedBox(
+                                  height: 120,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          // ── Teks privasi ───────────────────────
+                          Container(
+                            color: Colors.white,
+                            width: double.infinity,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: hPad,
+                              vertical: (screenH * 0.016).clamp(10.0, 22.0),
+                            ),
+                            child: Column(
+                              children: [
+                                Text(
+                                  'Dengan melanjutkan, Anda menyetujui',
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.poppins(
+                                    color: const Color(0xFF9CA3AF),
+                                    fontSize: privFontSize,
+                                  ),
+                                ),
+                                RichText(
+                                  textAlign: TextAlign.center,
+                                  text: TextSpan(
+                                    style: GoogleFonts.poppins(
+                                      fontSize: privFontSize,
+                                    ),
+                                    children: const [
+                                      TextSpan(
+                                        text: 'Kebijakan Privasi',
+                                        style: TextStyle(
+                                          color: Color(0xFF2E7D32),
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      TextSpan(
+                                        text: ' dan ',
+                                        style: TextStyle(
+                                            color: Color(0xFF9CA3AF)),
+                                      ),
+                                      TextSpan(
+                                        text: 'Ketentuan Layanan',
+                                        style: TextStyle(
+                                          color: Color(0xFF2E7D32),
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      TextSpan(
+                                        text: ' kami.',
+                                        style: TextStyle(
+                                            color: Color(0xFF9CA3AF)),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-
-                  // ── GAMBAR TANAMAN DI BAGIAN BAWAH ─────────────────
-                  Expanded(
-                    flex: 40,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Image.asset(
-                          'assets/images/gambar_login.png',
-                          fit: BoxFit.cover,
-                          alignment: Alignment.topCenter,
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // ── TEKS PRIVASI ───────────────────────────────────
-                  Container(
-                    color: Colors.white,
-                    width: double.infinity,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: hPad,
-                      vertical: screenH * 0.018,
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          'Dengan melanjutkan, Anda menyetujui',
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.poppins(
-                            color: const Color(0xFF9CA3AF),
-                            fontSize: privFontSize,
-                          ),
-                        ),
-                        RichText(
-                          textAlign: TextAlign.center,
-                          text: TextSpan(
-                            style: GoogleFonts.poppins(
-                              fontSize: privFontSize,
-                            ),
-                            children: const [
-                              TextSpan(
-                                text: 'Kebijakan Privasi',
-                                style: TextStyle(
-                                  color: Color(0xFF2E7D32),
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              TextSpan(
-                                text: ' dan ',
-                                style: TextStyle(
-                                  color: Color(0xFF9CA3AF),
-                                ),
-                              ),
-                              TextSpan(
-                                text: 'Ketentuan Layanan',
-                                style: TextStyle(
-                                  color: Color(0xFF2E7D32),
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              TextSpan(
-                                text: ' kami.',
-                                style: TextStyle(
-                                  color: Color(0xFF9CA3AF),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                ),
               ),
             ],
           );
@@ -299,20 +331,9 @@ class _TopWavePainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final path = Path();
-
-    // Mulai dari pojok kiri atas area gelombang
     path.moveTo(0, 0);
-
-    // Bagian atas
     path.lineTo(size.width, 0);
-
-    // Turun di sisi kanan
-    path.lineTo(
-      size.width,
-      size.height * 0.60,
-    );
-
-    // Gelombang utama
+    path.lineTo(size.width, size.height * 0.60);
     path.cubicTo(
       size.width * 0.92,
       size.height * 0.50,
@@ -321,8 +342,6 @@ class _TopWavePainter extends CustomPainter {
       size.width * 0.70,
       size.height * 0.34,
     );
-
-    // Gelombang kedua
     path.cubicTo(
       size.width * 0.62,
       size.height * 0.22,
@@ -331,123 +350,11 @@ class _TopWavePainter extends CustomPainter {
       size.width * 0.40,
       0,
     );
-
     path.close();
 
     canvas.drawPath(path, paint);
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return false;
-  }
-}
-
-// ════════════════════════════════════════════════════════════════
-// LOGO GOOGLE — putih lingkaran di dalam tombol hijau
-// ════════════════════════════════════════════════════════════════
-
-class _GoogleLogoWhiteBg extends StatelessWidget {
-  final double size;
-
-  const _GoogleLogoWhiteBg({
-    required this.size,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        shape: BoxShape.circle,
-      ),
-      padding: EdgeInsets.all(size * 0.12),
-      child: CustomPaint(
-        painter: _GoogleLogoPainter(),
-      ),
-    );
-  }
-}
-
-class _GoogleLogoPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-
-    const colorBlue = Color(0xFF4285F4);
-    const colorRed = Color(0xFFEA4335);
-    const colorYellow = Color(0xFFFBBC05);
-    const colorGreen = Color(0xFF34A853);
-
-    final sw = w * 0.175;
-
-    final strokePaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = sw
-      ..strokeCap = StrokeCap.butt;
-
-    final radius = w * 0.44;
-    final cx = w / 2;
-    final cy = h / 2;
-
-    final rect = Rect.fromCircle(
-      center: Offset(cx, cy),
-      radius: radius,
-    );
-
-    final deg = math.pi / 180;
-
-    canvas.drawArc(
-      rect,
-      207 * deg,
-      123 * deg,
-      false,
-      strokePaint..color = colorRed,
-    );
-
-    canvas.drawArc(
-      rect,
-      330 * deg,
-      57 * deg,
-      false,
-      strokePaint..color = colorYellow,
-    );
-
-    canvas.drawArc(
-      rect,
-      27 * deg,
-      148 * deg,
-      false,
-      strokePaint..color = colorGreen,
-    );
-
-    canvas.drawArc(
-      rect,
-      175 * deg,
-      32 * deg,
-      false,
-      strokePaint..color = colorBlue,
-    );
-
-    canvas.drawLine(
-      Offset(cx, cy),
-      Offset(
-        cx + radius + sw / 2,
-        cy,
-      ),
-      Paint()
-        ..color = colorBlue
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = sw
-        ..strokeCap = StrokeCap.butt,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return false;
-  }
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
