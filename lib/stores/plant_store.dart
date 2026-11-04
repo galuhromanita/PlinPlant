@@ -1,20 +1,17 @@
 import 'package:flutter/material.dart';
+
 import '../models/plant_model.dart';
+import '../models/plant_status.dart';
 import '../models/care_history_model.dart';
 
-// ============================================================
-// PLANT STORE — STATE MANAGEMENT TANAMAN
-// Data disimpan di memory (in-RAM).
 // Tidak ada backend → data hilang jika app ditutup.
-// ============================================================
 
+// PlantStore adalah singleton ChangeNotifier: data berubah -> notifyListeners()
+// -> layar yang listen memanggil setState.
 class PlantStore extends ChangeNotifier {
   static final PlantStore _instance = PlantStore._internal();
   factory PlantStore() => _instance;
   PlantStore._internal();
-
-  bool _isLoading = false;
-  bool get isLoading => _isLoading;
 
   final List<PlantModel> _plants = [
     PlantModel(
@@ -49,7 +46,9 @@ class PlantStore extends ChangeNotifier {
       species: 'Sansevieria',
       wateringIntervalDays: 10,
       lastWatered: DateTime.now().subtract(const Duration(days: 3)),
-      fertilizerEnabled: false,
+      fertilizerEnabled: true,
+      fertilizerIntervalDays: 7,
+      lastFertilized: DateTime.now().subtract(const Duration(days: 7)),
     ),
     PlantModel(
       id: '5',
@@ -65,28 +64,23 @@ class PlantStore extends ChangeNotifier {
 
   final List<CareHistory> _histories = [];
 
-  // ── Getters ─────────────────────────────────────────────────
-
   List<PlantModel> get plants => List.unmodifiable(_plants);
   List<CareHistory> get histories => List.unmodifiable(_histories);
 
   int get totalPlants => _plants.length;
 
   int get amanCount =>
-      _plants.where((p) => p.wateringStatus == 'Aman').length;
+      _plants.where((p) => p.overallStatus == PlantStatus.safe).length;
 
   int get perluCount =>
-      _plants.where((p) => p.wateringStatus == 'Perlu').length;
+      _plants.where((p) => p.overallStatus == PlantStatus.due).length;
 
   int get terlambatCount =>
-      _plants.where((p) => p.wateringStatus == 'Terlambat').length;
+      _plants.where((p) => p.overallStatus == PlantStatus.overdue).length;
 
   PlantModel? getById(String id) {
-    try {
-      return _plants.firstWhere((p) => p.id == id);
-    } catch (_) {
-      return null;
-    }
+    final i = _plants.indexWhere((p) => p.id == id);
+    return i == -1 ? null : _plants[i];
   }
 
   String generateId() => DateTime.now().millisecondsSinceEpoch.toString();
@@ -95,45 +89,35 @@ class PlantStore extends ChangeNotifier {
 
   /// Tambah tanaman baru — async simulasi
   Future<void> addPlant(PlantModel plant) async {
-    _isLoading = true;
-    notifyListeners();
-
     await Future.delayed(const Duration(milliseconds: 400));
 
     _plants.add(plant);
-    _isLoading = false;
     notifyListeners();
   }
 
   /// Update tanaman — async simulasi
   Future<void> updatePlant(PlantModel updated) async {
-    _isLoading = true;
-    notifyListeners();
-
     await Future.delayed(const Duration(milliseconds: 400));
 
     final idx = _plants.indexWhere((p) => p.id == updated.id);
     if (idx != -1) {
       _plants[idx] = updated;
     }
-    _isLoading = false;
     notifyListeners();
   }
 
   /// Hapus tanaman — async simulasi
   Future<void> deletePlant(String id) async {
-    _isLoading = true;
-    notifyListeners();
-
     await Future.delayed(const Duration(milliseconds: 400));
 
     _plants.removeWhere((p) => p.id == id);
-    _isLoading = false;
     notifyListeners();
   }
 
-  /// Catat penyiraman — async simulasi
+  /// Catat penyiraman.
   Future<void> waterPlant(String id) async {
+    await Future.delayed(const Duration(milliseconds: 400));
+
     final idx = _plants.indexWhere((p) => p.id == id);
     if (idx == -1) return;
 
@@ -154,8 +138,10 @@ class PlantStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Catat pemupukan — async simulasi
+  /// Catat pemupukan.
   Future<void> fertilizePlant(String id) async {
+    await Future.delayed(const Duration(milliseconds: 400));
+
     final idx = _plants.indexWhere((p) => p.id == id);
     if (idx == -1) return;
 
@@ -173,11 +159,11 @@ class PlantStore extends ChangeNotifier {
         performedAt: DateTime.now(),
       ),
     );
+
     notifyListeners();
   }
 
-  /// Reset semua data (saat logout)
-  void clearAll() {
+  void clear() {
     _plants.clear();
     _histories.clear();
     notifyListeners();

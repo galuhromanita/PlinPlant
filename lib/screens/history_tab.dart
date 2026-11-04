@@ -1,14 +1,10 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import '../models/care_history_model.dart';
-import '../providers/plant_store.dart';
-import '../widgets/app_widgets.dart';
 
-// ============================================================
-// HISTORY SCREEN — Tab Riwayat
-// [4] Sorting tabs: Semua / Penyiraman / Pemupukan
-// ============================================================
+import '../models/care_history_model.dart';
+import '../stores/plant_store.dart';
+import '../widgets/app_widgets.dart';
 
 class HistoryTab extends StatefulWidget {
   final PlantStore store;
@@ -44,14 +40,19 @@ class _HistoryTabState extends State<HistoryTab> {
   Widget build(BuildContext context) {
     final filtered = _filtered;
     final w = MediaQuery.of(context).size.width;
-    final hPad = w < 400 ? 16.0 : 20.0;
+    const hPad = AppSpacing.page;
 
     return SafeArea(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: EdgeInsets.fromLTRB(hPad, 20, hPad, 0),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.page,
+              AppSpacing.page,
+              AppSpacing.page,
+              0,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -64,6 +65,7 @@ class _HistoryTabState extends State<HistoryTab> {
                     color: AppColors.textPrimary,
                   ),
                 ),
+                const SizedBox(height: AppSpacing.micro),
                 Text(
                   'Aktivitas perawatan tanaman Anda',
                   style: GoogleFonts.poppins(
@@ -71,14 +73,14 @@ class _HistoryTabState extends State<HistoryTab> {
                     color: AppColors.textSecondary,
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: AppSpacing.section),
 
-                // [4] Filter Tabs — persis seperti gambar referensi
+                // Filter riwayat berdasarkan jenis perawatan.
                 Container(
-                  padding: const EdgeInsets.all(4),
+                  padding: const EdgeInsets.all(AppSpacing.tight),
                   decoration: BoxDecoration(
                     color: AppColors.divider,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(AppRadius.input),
                   ),
                   child: Row(
                     children: List.generate(_filterLabels.length, (i) {
@@ -89,20 +91,25 @@ class _HistoryTabState extends State<HistoryTab> {
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
                             curve: Curves.easeInOut,
-                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: AppSpacing.item,
+                            ),
                             decoration: BoxDecoration(
                               color: isActive
                                   ? AppColors.primary
                                   : Colors.transparent,
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.input,
+                              ),
                               boxShadow: isActive
                                   ? [
                                       BoxShadow(
-                                        color: AppColors.primary
-                                            .withValues(alpha: 0.25),
+                                        color: AppColors.primary.withValues(
+                                          alpha: 0.25,
+                                        ),
                                         blurRadius: 6,
                                         offset: const Offset(0, 2),
-                                      )
+                                      ),
                                     ]
                                   : [],
                             ),
@@ -125,7 +132,7 @@ class _HistoryTabState extends State<HistoryTab> {
                     }),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.section),
               ],
             ),
           ),
@@ -133,17 +140,17 @@ class _HistoryTabState extends State<HistoryTab> {
           // ── Daftar Riwayat ───────────────────────────────────
           Expanded(
             child: filtered.isEmpty
-                ? _EmptyHistoryWidget(
-                    label: _filterLabels[_selectedFilter])
+                ? _EmptyHistoryWidget(label: _filterLabels[_selectedFilter])
                 : ListView.separated(
                     padding: EdgeInsets.symmetric(horizontal: hPad),
                     itemCount: filtered.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    separatorBuilder: (_, _) =>
+                        const SizedBox(height: AppSpacing.item),
                     itemBuilder: (context, index) =>
                         _HistoryCard(history: filtered[index]),
                   ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.item),
         ],
       ),
     );
@@ -160,16 +167,15 @@ class _HistoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isWatering = history.careType == CareType.watering;
-    final color = isWatering ? AppColors.primary : const Color(0xFF8BC34A);
-    final bgColor =
-        isWatering ? AppColors.primaryBg : const Color(0xFFF1F8E9);
+    final color = isWatering ? AppColors.primary : AppColors.fertilizer;
+    final bgColor = isWatering ? AppColors.primaryBg : AppColors.fertilizerBg;
     final icon = isWatering ? Icons.water_drop_rounded : Icons.eco_rounded;
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(AppSpacing.card),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppRadius.card),
         border: Border.all(color: AppColors.divider),
         boxShadow: [
           BoxShadow(
@@ -184,13 +190,10 @@ class _HistoryCard extends StatelessWidget {
           Container(
             width: 46,
             height: 46,
-            decoration: BoxDecoration(
-              color: bgColor,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
             child: Icon(icon, color: color, size: 22),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpacing.item),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -205,7 +208,7 @@ class _HistoryCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: AppSpacing.micro),
                 Text(
                   history.careTypeLabel,
                   style: GoogleFonts.poppins(
@@ -227,7 +230,7 @@ class _HistoryCard extends StatelessWidget {
                   color: AppColors.textHint,
                 ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: AppSpacing.micro),
               Text(
                 DateFormat('HH:mm').format(history.performedAt),
                 style: GoogleFonts.poppins(
@@ -261,7 +264,7 @@ class _EmptyHistoryWidget extends StatelessWidget {
             size: 72,
             color: AppColors.textHint.withValues(alpha: 0.4),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.section),
           Text(
             'Belum ada riwayat',
             style: GoogleFonts.poppins(
@@ -270,7 +273,7 @@ class _EmptyHistoryWidget extends StatelessWidget {
               color: AppColors.textSecondary,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.item),
           Text(
             label == 'Semua'
                 ? 'Aktivitas penyiraman dan pemupukan\nakan muncul di sini.'

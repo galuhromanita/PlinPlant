@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../models/user_model.dart';
 
 // ============================================================
@@ -16,9 +17,7 @@ class UserSession extends ChangeNotifier {
 
   UserModel? get currentUser => _currentUser;
 
-  bool get isLoggedIn => _currentUser != null;
-
-  /// Simulasi login Google — delay 1 detik untuk meniru network call
+  /// Simulasi login Google dengan jeda 800 ms.
   Future<void> loginWithGoogle() async {
     // Simulasi delay network (async)
     await Future.delayed(const Duration(milliseconds: 800));

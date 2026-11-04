@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../main.dart';
 
-// ============================================================
-// SPLASH SCREEN — Screen #1
-// ============================================================
+import '../routes.dart';
+import '../theme/app_colors.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -74,7 +72,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF3D8C2F),
+      backgroundColor: AppColors.primary,
       body: Stack(
         children: [
           // Ornamen lingkaran kiri atas
@@ -114,17 +112,17 @@ class _SplashScreenState extends State<SplashScreen>
                   opacity: _opacity.value,
                   child: Transform.scale(
                     scale: _scale.value,
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final screenW = MediaQuery.of(context).size.width;
-                        final logoSize = (screenW * 0.38).clamp(100.0, 160.0);
-                        return Image.asset(
-                          'assets/icon/plinplant_logo_white.png',
-                          width: logoSize,
-                          height: logoSize,
-                          fit: BoxFit.contain,
-                        );
-                      },
+                    child: Image.asset(
+                      'assets/icon/plinplant_logo_white.png',
+                      width: (MediaQuery.of(context).size.width * 0.38).clamp(
+                        100.0,
+                        160.0,
+                      ),
+                      height: (MediaQuery.of(context).size.width * 0.38).clamp(
+                        100.0,
+                        160.0,
+                      ),
+                      fit: BoxFit.contain,
                     ),
                   ),
                 );

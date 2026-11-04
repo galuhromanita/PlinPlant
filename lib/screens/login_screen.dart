@@ -1,14 +1,10 @@
-import 'dart:math' as math;
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../main.dart';
-import '../providers/user_session.dart';
 
-// ============================================================
-// LOGIN SCREEN — Screen #2
-// [Fix] Tidak overflow di layar kecil — pakai SingleChildScrollView
-// ============================================================
+import '../routes.dart';
+import '../stores/user_session.dart';
+import '../widgets/app_widgets.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -35,148 +31,127 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    SystemChrome.setSystemUIOverlayStyle(
-      const SystemUiOverlayStyle(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.dark,
       ),
-    );
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            final screenW = constraints.maxWidth;
+            final screenH = constraints.maxHeight;
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final screenW = constraints.maxWidth;
-          final screenH = constraints.maxHeight;
+            final logoSize = (screenW * 0.22).clamp(60.0, 100.0);
+            final titleSize = (screenW * 0.10).clamp(26.0, 42.0);
+            final subtitleSize = (screenW * 0.038).clamp(12.0, 16.0);
+            final btnFontSize = (screenW * 0.042).clamp(13.0, 17.0);
+            // Login tetap responsif agar form tidak terlalu sempit pada layar kecil.
+            final hPad = (screenW * 0.07).clamp(AppSpacing.page, 40.0);
+            final privFontSize = (screenW * 0.028).clamp(10.0, 12.5);
 
-          final logoSize = (screenW * 0.22).clamp(60.0, 100.0);
-          final titleSize = (screenW * 0.10).clamp(26.0, 42.0);
-          final subtitleSize = (screenW * 0.038).clamp(12.0, 16.0);
-          final btnFontSize = (screenW * 0.042).clamp(13.0, 17.0);
-          final hPad = (screenW * 0.07).clamp(20.0, 40.0);
-          final privFontSize = (screenW * 0.028).clamp(10.0, 12.5);
-
-          return Stack(
-            children: [
-              // ── Gelombang hijau pojok kanan atas ───────────────
-              Positioned(
-                top: 0,
-                right: 0,
-                child: IgnorePointer(
-                  child: CustomPaint(
-                    size: Size(screenW * 0.78, screenH * 0.40),
-                    painter: _TopWavePainter(),
+            return Stack(
+              children: [
+                // ── Gelombang hijau pojok kanan atas ───────────────
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: IgnorePointer(
+                    child: CustomPaint(
+                      size: Size(screenW * 0.78, screenH * 0.40),
+                      painter: _TopWavePainter(),
+                    ),
                   ),
                 ),
-              ),
 
-              // [Fix] SafeArea + SingleChildScrollView agar tidak overflow
-              SafeArea(
-                child: SingleChildScrollView(
-                  physics: const ClampingScrollPhysics(),
-                  child: ConstrainedBox(
-                    // Minimum height = full screen agar tombol tetap
-                    // di posisi yang baik di layar besar
-                    constraints: BoxConstraints(
-                      minHeight: constraints.maxHeight -
-                          MediaQuery.of(context).padding.top -
-                          MediaQuery.of(context).padding.bottom,
-                    ),
-                    child: IntrinsicHeight(
-                      child: Column(
-                        children: [
-                          // ── Bagian atas: logo + teks + tombol ───
-                          Padding(
-                            padding:
-                                EdgeInsets.symmetric(horizontal: hPad),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                SizedBox(
-                                    height: (screenH * 0.09).clamp(
-                                        24.0, 80.0)),
+                // [Fix] SafeArea + SingleChildScrollView agar tidak overflow
+                SafeArea(
+                  child: SingleChildScrollView(
+                    physics: const ClampingScrollPhysics(),
+                    child: ConstrainedBox(
+                      // Minimum height = full screen agar tombol tetap
+                      // di posisi yang baik di layar besar
+                      constraints: BoxConstraints(
+                        minHeight:
+                            constraints.maxHeight -
+                            MediaQuery.of(context).padding.top -
+                            MediaQuery.of(context).padding.bottom,
+                      ),
+                      child: IntrinsicHeight(
+                        child: Column(
+                          children: [
+                            // ── Bagian atas: logo + teks + tombol ───
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: hPad),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  SizedBox(height: AppSpacing.section),
 
-                                // Logo
-                                Center(
-                                  child: Image.asset(
-                                    'assets/icon/plinplant_logo_green.png',
-                                    width: logoSize,
-                                    height: logoSize,
-                                    fit: BoxFit.contain,
-                                    errorBuilder: (_, _, _) => Icon(
-                                      Icons.eco_rounded,
-                                      size: logoSize,
-                                      color: const Color(0xFF4FA066),
+                                  // Logo
+                                  Center(
+                                    child: Image.asset(
+                                      'assets/icon/plinplant_logo_green.png',
+                                      width: logoSize,
+                                      height: logoSize,
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (_, _, _) => Icon(
+                                        Icons.eco_rounded,
+                                        size: logoSize,
+                                        color: AppColors.success,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                SizedBox(
-                                    height:
-                                        (screenH * 0.018).clamp(8.0, 20.0)),
+                                  SizedBox(height: AppSpacing.tight),
 
-                                // Nama App
-                                Text(
-                                  'PlinPlant',
-                                  textAlign: TextAlign.center,
-                                  style: GoogleFonts.poppins(
-                                    color: const Color(0xFF1A3C34),
-                                    fontSize: titleSize,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: -1.5,
-                                    height: 1.0,
+                                  // Nama App
+                                  Text(
+                                    'PlinPlant',
+                                    textAlign: TextAlign.center,
+                                    style: GoogleFonts.poppins(
+                                      color: AppColors.loginText,
+                                      fontSize: titleSize,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: -1.5,
+                                      height: 1.0,
+                                    ),
                                   ),
-                                ),
-                                SizedBox(
-                                    height:
-                                        (screenH * 0.012).clamp(6.0, 16.0)),
+                                  SizedBox(height: AppSpacing.tight),
 
-                                Text(
-                                  'Selamat datang!',
-                                  textAlign: TextAlign.center,
-                                  style: GoogleFonts.poppins(
-                                    color: const Color(0xFF1A3C34),
-                                    fontSize: (screenW * 0.055)
-                                        .clamp(16.0, 24.0),
-                                    fontWeight: FontWeight.w700,
+                                  Text(
+                                    'Selamat datang!',
+                                    textAlign: TextAlign.center,
+                                    style: GoogleFonts.poppins(
+                                      color: AppColors.loginText,
+                                      fontSize: (screenW * 0.055).clamp(
+                                        16.0,
+                                        24.0,
+                                      ),
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
-                                ),
-                                SizedBox(
-                                    height:
-                                        (screenH * 0.005).clamp(4.0, 8.0)),
+                                  SizedBox(height: AppSpacing.tight),
 
-                                Text(
-                                  'Masuk untuk melanjutkan ke aplikasi PlinPlant.',
-                                  textAlign: TextAlign.center,
-                                  style: GoogleFonts.poppins(
-                                    color: const Color(0xFF6B7280),
-                                    fontSize: subtitleSize,
-                                    fontWeight: FontWeight.w400,
+                                  Text(
+                                    'Masuk untuk melanjutkan ke aplikasi PlinPlant.',
+                                    textAlign: TextAlign.center,
+                                    style: GoogleFonts.poppins(
+                                      color: AppColors.textSecondary,
+                                      fontSize: subtitleSize,
+                                      fontWeight: FontWeight.w400,
+                                    ),
                                   ),
-                                ),
-                                SizedBox(
-                                    height:
-                                        (screenH * 0.028).clamp(16.0, 36.0)),
+                                  SizedBox(height: AppSpacing.section),
 
-                                // ── Tombol Login Google ────────────
-                                SizedBox(
-                                  width: double.infinity,
-                                  height: (screenH * 0.068).clamp(48.0, 62.0),
-                                  child: ElevatedButton(
+                                  // ── Tombol Login Google ────────────
+                                  ElevatedButton(
                                     onPressed: _isLoading
                                         ? null
                                         : _handleGoogleLogin,
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor:
-                                          const Color(0xFF4E6B50),
-                                      foregroundColor: Colors.white,
-                                      disabledBackgroundColor: const Color(
-                                              0xFF4E6B50)
+                                      disabledBackgroundColor: AppColors.primary
                                           .withValues(alpha: 0.7),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(12),
-                                      ),
-                                      elevation: 0,
                                     ),
                                     child: _isLoading
                                         ? const SizedBox(
@@ -194,25 +169,26 @@ class _LoginScreenState extends State<LoginScreen> {
                                               Container(
                                                 width: 28,
                                                 height: 28,
-                                                decoration:
-                                                    const BoxDecoration(
+                                                decoration: const BoxDecoration(
                                                   color: Colors.white,
                                                   shape: BoxShape.circle,
                                                 ),
-                                                padding:
-                                                    const EdgeInsets.all(5),
+                                                padding: const EdgeInsets.all(
+                                                  5,
+                                                ),
                                                 child: Image.network(
                                                   'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png',
                                                   fit: BoxFit.contain,
-                                                  errorBuilder: (_, __,
-                                                          ___) =>
+                                                  errorBuilder: (_, _, _) =>
                                                       const Icon(
-                                                    Icons.g_mobiledata,
-                                                    size: 18,
-                                                  ),
+                                                        Icons.g_mobiledata,
+                                                        size: 18,
+                                                      ),
                                                 ),
                                               ),
-                                              const SizedBox(width: 12),
+                                              const SizedBox(
+                                                width: AppSpacing.item,
+                                              ),
                                               Text(
                                                 'Lanjutkan dengan Google',
                                                 style: GoogleFonts.poppins(
@@ -224,96 +200,96 @@ class _LoginScreenState extends State<LoginScreen> {
                                             ],
                                           ),
                                   ),
-                                ),
-                                SizedBox(
-                                    height:
-                                        (screenH * 0.014).clamp(8.0, 20.0)),
-                              ],
-                            ),
-                          ),
-
-                          // ── Gambar tanaman — mengisi sisa ruang ─
-                          Expanded(
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(
-                                minHeight: 120,
-                              ),
-                              child: Image.asset(
-                                'assets/images/gambar_login.png',
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                                alignment: Alignment.topCenter,
-                                errorBuilder: (_, _, _) => const SizedBox(
-                                  height: 120,
-                                ),
+                                  SizedBox(height: AppSpacing.item),
+                                ],
                               ),
                             ),
-                          ),
 
-                          // ── Teks privasi ───────────────────────
-                          Container(
-                            color: Colors.white,
-                            width: double.infinity,
-                            padding: EdgeInsets.symmetric(
-                              horizontal: hPad,
-                              vertical: (screenH * 0.016).clamp(10.0, 22.0),
-                            ),
-                            child: Column(
-                              children: [
-                                Text(
-                                  'Dengan melanjutkan, Anda menyetujui',
-                                  textAlign: TextAlign.center,
-                                  style: GoogleFonts.poppins(
-                                    color: const Color(0xFF9CA3AF),
-                                    fontSize: privFontSize,
+                            // ── Gambar tanaman — mengisi sisa ruang ─
+                            Expanded(
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  minHeight: 120,
+                                ),
+                                child: Image.asset(
+                                  'assets/images/gambar_login.png',
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                  alignment: Alignment.topCenter,
+                                  errorBuilder: (_, _, _) => const SizedBox(
+                                    height: AppSpacing.section,
                                   ),
                                 ),
-                                RichText(
-                                  textAlign: TextAlign.center,
-                                  text: TextSpan(
+                              ),
+                            ),
+
+                            // ── Teks privasi ───────────────────────
+                            Container(
+                              color: Colors.white,
+                              width: double.infinity,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: hPad,
+                                vertical: AppSpacing.item,
+                              ),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    'Dengan melanjutkan, Anda menyetujui',
+                                    textAlign: TextAlign.center,
                                     style: GoogleFonts.poppins(
+                                      color: AppColors.textHint,
                                       fontSize: privFontSize,
                                     ),
-                                    children: const [
-                                      TextSpan(
-                                        text: 'Kebijakan Privasi',
-                                        style: TextStyle(
-                                          color: Color(0xFF2E7D32),
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                      TextSpan(
-                                        text: ' dan ',
-                                        style: TextStyle(
-                                            color: Color(0xFF9CA3AF)),
-                                      ),
-                                      TextSpan(
-                                        text: 'Ketentuan Layanan',
-                                        style: TextStyle(
-                                          color: Color(0xFF2E7D32),
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                      TextSpan(
-                                        text: ' kami.',
-                                        style: TextStyle(
-                                            color: Color(0xFF9CA3AF)),
-                                      ),
-                                    ],
                                   ),
-                                ),
-                              ],
+                                  RichText(
+                                    textAlign: TextAlign.center,
+                                    text: TextSpan(
+                                      style: GoogleFonts.poppins(
+                                        fontSize: privFontSize,
+                                      ),
+                                      children: const [
+                                        TextSpan(
+                                          text: 'Kebijakan Privasi',
+                                          style: TextStyle(
+                                            color: AppColors.loginGreen,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: ' dan ',
+                                          style: TextStyle(
+                                            color: AppColors.textHint,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: 'Ketentuan Layanan',
+                                          style: TextStyle(
+                                            color: AppColors.loginGreen,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: ' kami.',
+                                          style: TextStyle(
+                                            color: AppColors.textHint,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          );
-        },
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -327,7 +303,7 @@ class _TopWavePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFFDCEAD6)
+      ..color = AppColors.loginWave
       ..style = PaintingStyle.fill;
 
     final path = Path();

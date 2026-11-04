@@ -2,6 +2,10 @@
 // MODEL DATA TANAMAN
 // ============================================================
 
+import 'dart:math';
+
+import 'plant_status.dart';
+
 class PlantModel {
   final String id;
   String name;
@@ -12,7 +16,6 @@ class PlantModel {
   bool fertilizerEnabled;
   int fertilizerIntervalDays;
   DateTime? lastFertilized;
-  DateTime? fertilizerLastDate;
 
   PlantModel({
     required this.id,
@@ -24,48 +27,61 @@ class PlantModel {
     this.fertilizerEnabled = false,
     this.fertilizerIntervalDays = 7,
     this.lastFertilized,
-    this.fertilizerLastDate,
   });
 
-  /// Status penyiraman: 'Aman', 'Perlu', 'Terlambat'
-  String get wateringStatus {
-    if (lastWatered == null) return 'Perlu';
-    final daysSince =
-        DateTime.now().difference(lastWatered!).inDays;
-    if (daysSince < wateringIntervalDays) return 'Aman';
-    if (daysSince == wateringIntervalDays) return 'Perlu';
-    return 'Terlambat';
+  PlantStatus get wateringStatus {
+    if (lastWatered == null) return PlantStatus.due;
+    final daysSince = DateTime.now().difference(lastWatered!).inDays;
+    if (daysSince < wateringIntervalDays) return PlantStatus.safe;
+    if (daysSince == wateringIntervalDays) return PlantStatus.due;
+    return PlantStatus.overdue;
   }
 
   /// Berapa hari lagi / lalu disiram
   String get wateringTimeText {
     if (lastWatered == null) return 'Belum pernah';
-    final daysSince =
-        DateTime.now().difference(lastWatered!).inDays;
+    final daysSince = DateTime.now().difference(lastWatered!).inDays;
     final daysLeft = wateringIntervalDays - daysSince;
     if (daysLeft > 0) return '$daysLeft hari lagi';
     if (daysLeft == 0) return 'Hari ini';
     return '${daysLeft.abs()} hari lalu';
   }
 
-  /// Status pemupukan
-  String get fertilizerStatus {
-    if (!fertilizerEnabled || lastFertilized == null) return 'Tidak aktif';
-    final daysSince =
-        DateTime.now().difference(lastFertilized!).inDays;
-    if (daysSince < fertilizerIntervalDays) return 'Aman';
-    return 'Perlu dipupuk';
+  PlantStatus? get fertilizingStatus {
+    if (!fertilizerEnabled) return null;
+    if (lastFertilized == null) return PlantStatus.due;
+    final daysSince = DateTime.now().difference(lastFertilized!).inDays;
+    if (daysSince < fertilizerIntervalDays) return PlantStatus.safe;
+    if (daysSince == fertilizerIntervalDays) return PlantStatus.due;
+    return PlantStatus.overdue;
+  }
+
+  PlantStatus get overallStatus {
+    final fertilizing = fertilizingStatus;
+    if (fertilizing == null) return wateringStatus;
+    return PlantStatus.values[max(wateringStatus.index, fertilizing.index)];
   }
 
   /// Berapa hari lagi / lalu dipupuk
   String get fertilizerTimeText {
     if (!fertilizerEnabled || lastFertilized == null) return '-';
-    final daysSince =
-        DateTime.now().difference(lastFertilized!).inDays;
+    final daysSince = DateTime.now().difference(lastFertilized!).inDays;
     final daysLeft = fertilizerIntervalDays - daysSince;
     if (daysLeft > 0) return '$daysLeft hari lagi';
     if (daysLeft == 0) return 'Hari ini';
     return '${daysLeft.abs()} hari lalu';
+  }
+
+  bool get canFertilize {
+    return fertilizerEnabled && fertilizingStatus != PlantStatus.safe;
+  }
+
+  String get nextCareText {
+    final fertilizing = fertilizingStatus;
+    if (fertilizing == null || wateringStatus.index >= fertilizing.index) {
+      return 'Siram · $wateringTimeText';
+    }
+    return 'Pupuk · $fertilizerTimeText';
   }
 
   PlantModel copyWith({
@@ -78,22 +94,23 @@ class PlantModel {
     bool? fertilizerEnabled,
     int? fertilizerIntervalDays,
     DateTime? lastFertilized,
-    DateTime? fertilizerLastDate,
+    bool clearLastWatered = false,
+    bool clearLastFertilized = false,
+    bool clearImagePath = false,
   }) {
     return PlantModel(
       id: id ?? this.id,
       name: name ?? this.name,
       species: species ?? this.species,
-      imagePath: imagePath ?? this.imagePath,
-      wateringIntervalDays:
-          wateringIntervalDays ?? this.wateringIntervalDays,
-      lastWatered: lastWatered ?? this.lastWatered,
+      imagePath: clearImagePath ? null : imagePath ?? this.imagePath,
+      wateringIntervalDays: wateringIntervalDays ?? this.wateringIntervalDays,
+      lastWatered: clearLastWatered ? null : lastWatered ?? this.lastWatered,
       fertilizerEnabled: fertilizerEnabled ?? this.fertilizerEnabled,
       fertilizerIntervalDays:
           fertilizerIntervalDays ?? this.fertilizerIntervalDays,
-      lastFertilized: lastFertilized ?? this.lastFertilized,
-      fertilizerLastDate:
-          fertilizerLastDate ?? this.fertilizerLastDate,
+      lastFertilized: clearLastFertilized
+          ? null
+          : lastFertilized ?? this.lastFertilized,
     );
   }
 }

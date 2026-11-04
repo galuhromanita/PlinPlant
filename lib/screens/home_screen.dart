@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../providers/plant_store.dart';
-import '../providers/user_session.dart';
-import '../widgets/app_widgets.dart';
-import '../main.dart';
-import 'plant_list_screen.dart';
-import 'history_screen.dart';
-import 'profile_screen.dart';
 
-// ============================================================
-// HOME SCREEN — Dashboard utama dengan bottom navigation
-// ============================================================
+import '../models/plant_status.dart';
+import '../stores/plant_store.dart';
+import '../stores/user_session.dart';
+import '../widgets/app_widgets.dart';
+import '../routes.dart';
+import 'plant_list_tab.dart';
+import 'history_tab.dart';
+import 'profile_tab.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -47,34 +45,49 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-    ));
-
     final user = _session.currentUser;
     final userName = user?.name.split(' ').first ?? 'Pengguna';
 
     final tabs = <Widget>[
-      _DashboardTab(
-        store: _store,
-        userName: userName,
-        onTabChange: _changeTab,
-      ),
+      _DashboardTab(store: _store, userName: userName, onTabChange: _changeTab),
       PlantListTab(store: _store),
       HistoryTab(store: _store),
       const ProfileTab(),
     ];
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: IndexedStack(
-        index: _currentTab,
-        children: tabs,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
       ),
-      bottomNavigationBar: AppBottomNav(
-        currentIndex: _currentTab,
-        onTap: _changeTab,
+      child: Scaffold(
+        body: IndexedStack(index: _currentTab, children: tabs),
+        floatingActionButton: _currentTab == 1
+            ? FloatingActionButton(
+                onPressed: () async {
+                  final result = await Navigator.pushNamed(
+                    context,
+                    AppRoutes.addPlant,
+                  );
+                  if (result == true && context.mounted) {
+                    showSuccessPopup(
+                      context,
+                      title: 'Berhasil Menambahkan Tanaman!',
+                      message: 'Tanaman baru telah ditambahkan.',
+                    );
+                  }
+                },
+                backgroundColor: AppColors.primary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.card),
+                ),
+                child: const Icon(Icons.add, color: Colors.white, size: 28),
+              )
+            : null,
+        bottomNavigationBar: AppBottomNav(
+          currentIndex: _currentTab,
+          onTap: _changeTab,
+        ),
       ),
     );
   }
@@ -97,15 +110,18 @@ class _DashboardTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // [6] Hanya tampilkan tanaman yang Perlu dan Terlambat
+    // Tampilkan tanaman yang perlu perhatian lebih dulu.
     final urgentPlants = store.plants
-        .where((p) =>
-            p.wateringStatus == 'Perlu' || p.wateringStatus == 'Terlambat')
+        .where(
+          (p) =>
+              p.overallStatus == PlantStatus.due ||
+              p.overallStatus == PlantStatus.overdue,
+        )
         .toList();
 
     return SafeArea(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+        padding: const EdgeInsets.all(AppSpacing.page),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -124,7 +140,7 @@ class _DashboardTab extends StatelessWidget {
                         color: AppColors.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: AppSpacing.micro),
                     Text(
                       'Selamat datang kembali!',
                       style: GoogleFonts.poppins(
@@ -134,7 +150,7 @@ class _DashboardTab extends StatelessWidget {
                     ),
                   ],
                 ),
-                // [1] Ikon profil (bukan notifikasi)
+                // Ikon profil membuka tab Profil.
                 GestureDetector(
                   onTap: () => onTabChange(3),
                   child: Container(
@@ -142,7 +158,7 @@ class _DashboardTab extends StatelessWidget {
                     height: 44,
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(AppRadius.input),
                       border: Border.all(color: AppColors.border),
                     ),
                     child: const Icon(
@@ -154,19 +170,19 @@ class _DashboardTab extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpacing.section),
 
             // ── Total Tanaman Card ───────────────────────────────
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(AppSpacing.card),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   colors: [Color(0xFF4FA066), Color(0xFF3D8B4A)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(AppRadius.card),
                 boxShadow: [
                   BoxShadow(
                     color: const Color(0xFF4FA066).withValues(alpha: 0.35),
@@ -189,7 +205,7 @@ class _DashboardTab extends StatelessWidget {
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: AppSpacing.item),
                         Text(
                           '${store.totalPlants}',
                           style: GoogleFonts.poppins(
@@ -211,43 +227,46 @@ class _DashboardTab extends StatelessWidget {
                       height: 80,
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(AppRadius.card),
                       ),
-                      child: const Icon(Icons.eco_rounded,
-                          color: Colors.white, size: 44),
+                      child: const Icon(
+                        Icons.eco_rounded,
+                        color: Colors.white,
+                        size: 44,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.section),
 
             // ── Status Cards ─────────────────────────────────────
             Row(
               children: [
                 Expanded(
                   child: _StatusCard(
-                    title: 'Aman',
+                    title: PlantStatus.safe.label,
                     count: store.amanCount,
                     icon: Icons.check_circle_rounded,
                     iconColor: AppColors.success,
                     bgColor: AppColors.successBg,
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: AppSpacing.item),
                 Expanded(
                   child: _StatusCard(
-                    title: 'Perlu',
+                    title: PlantStatus.due.label,
                     count: store.perluCount,
                     icon: Icons.opacity_rounded,
                     iconColor: AppColors.warning,
                     bgColor: AppColors.warningBg,
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: AppSpacing.item),
                 Expanded(
                   child: _StatusCard(
-                    title: 'Terlambat',
+                    title: PlantStatus.overdue.label,
                     count: store.terlambatCount,
                     icon: Icons.warning_rounded,
                     iconColor: AppColors.danger,
@@ -256,9 +275,9 @@ class _DashboardTab extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: AppSpacing.section),
 
-            // [6] Judul: "Perlu Perhatian" bukan "Tanaman Saya"
+            // Bagian ini hanya menampilkan tanaman yang perlu perhatian.
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -283,24 +302,28 @@ class _DashboardTab extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: AppSpacing.item),
 
-            // [6] Hanya tampilkan Perlu & Terlambat
+            // Tanaman aman tidak perlu ditampilkan di bagian ini.
             if (urgentPlants.isEmpty)
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 28),
+                padding: const EdgeInsets.all(AppSpacing.card),
                 decoration: BoxDecoration(
                   color: AppColors.successBg,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(AppRadius.card),
                   border: Border.all(
-                      color: AppColors.success.withValues(alpha: 0.2)),
+                    color: AppColors.success.withValues(alpha: 0.2),
+                  ),
                 ),
                 child: Column(
                   children: [
-                    const Icon(Icons.check_circle_rounded,
-                        color: AppColors.success, size: 40),
-                    const SizedBox(height: 10),
+                    const Icon(
+                      Icons.check_circle_rounded,
+                      color: AppColors.success,
+                      size: 40,
+                    ),
+                    const SizedBox(height: AppSpacing.item),
                     Text(
                       'Semua tanaman dalam kondisi baik!',
                       textAlign: TextAlign.center,
@@ -316,22 +339,31 @@ class _DashboardTab extends StatelessWidget {
             else
               ...urgentPlants.take(3).map((plant) {
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.only(bottom: AppSpacing.item),
                   child: PlantListCard(
                     name: plant.name,
                     species: plant.species,
-                    status: plant.wateringStatus,
-                    timeText: plant.wateringTimeText,
+                    status: plant.overallStatus,
+                    timeText: plant.nextCareText,
                     imagePath: plant.imagePath,
-                    onTap: () => Navigator.pushNamed(
-                      context,
-                      AppRoutes.plantDetail,
-                      arguments: plant.id,
-                    ),
+                    onTap: () async {
+                      final result = await Navigator.pushNamed(
+                        context,
+                        AppRoutes.plantDetail,
+                        arguments: plant.id,
+                      );
+                      if (result == PlantDetailResult.deleted &&
+                          context.mounted) {
+                        showSuccessPopup(
+                          context,
+                          title: 'Tanaman Berhasil Dihapus!',
+                          message: 'Tanaman berhasil dihapus.',
+                        );
+                      }
+                    },
                   ),
                 );
               }),
-            const SizedBox(height: 12),
           ],
         ),
       ),
@@ -359,32 +391,36 @@ class _StatusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+      padding: const EdgeInsets.all(AppSpacing.card),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppRadius.card),
         border: Border.all(color: iconColor.withValues(alpha: 0.15)),
       ),
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: iconColor,
-              shape: BoxShape.circle,
-            ),
+            padding: const EdgeInsets.all(AppSpacing.tight),
+            decoration: BoxDecoration(color: iconColor, shape: BoxShape.circle),
             child: Icon(icon, color: Colors.white, size: 22),
           ),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-              color: iconColor,
+          const SizedBox(height: AppSpacing.item),
+          SizedBox(
+            height: 18,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                title,
+                maxLines: 1,
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: iconColor,
+                ),
+              ),
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: AppSpacing.item),
           Text(
             '$count tanaman',
             style: GoogleFonts.poppins(

@@ -1,17 +1,10 @@
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import '../models/plant_model.dart';
-import '../providers/plant_store.dart';
-import '../widgets/app_widgets.dart';
 
-// ============================================================
-// ADD / EDIT PLANT SCREEN — Screen #5
-// [2] Pupuk muncul saat toggle aktif
-// [3] Jenis tanaman: input bebas
-// [4] Interval: stepper + input angka
-// ============================================================
+import '../models/plant_model.dart';
+import '../stores/plant_store.dart';
+import '../widgets/app_widgets.dart';
 
 class AddPlantScreen extends StatefulWidget {
   final PlantModel? plantToEdit;
@@ -24,11 +17,10 @@ class AddPlantScreen extends StatefulWidget {
 
 class _AddPlantScreenState extends State<AddPlantScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  // [3] Jenis tanaman input bebas
+  final _nameController =
+      TextEditingController(); // [3] Jenis tanaman input bebas
   final _speciesController = TextEditingController();
   int _waterInterval = 3;
-  // [4] Controller angka manual
   final _waterIntervalController = TextEditingController();
   DateTime? _lastWatered;
 
@@ -71,18 +63,12 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_lastWatered == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Harap isi tanggal terakhir disiram!')),
-      );
-      return;
-    }
-    if (_fertilizerEnabled && _lastFertilized == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Harap isi tanggal terakhir dipupuk!')),
-      );
-      return;
+
+    // Setelah valid, controller dan state memakai angka yang sama saat disimpan.
+    _waterInterval = int.tryParse(_waterIntervalController.text) ?? 3;
+    if (_fertilizerEnabled) {
+      _fertilizerInterval =
+          int.tryParse(_fertilizerIntervalController.text) ?? 7;
     }
 
     setState(() => _isSaving = true);
@@ -96,21 +82,14 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
         wateringIntervalDays: _waterInterval,
         lastWatered: _lastWatered!,
         fertilizerEnabled: _fertilizerEnabled,
-        fertilizerIntervalDays:
-            _fertilizerEnabled ? _fertilizerInterval : 7,
+        fertilizerIntervalDays: _fertilizerEnabled ? _fertilizerInterval : 7,
         lastFertilized: _fertilizerEnabled ? _lastFertilized : null,
       );
       await store.addPlant(newPlant);
 
       if (!mounted) return;
       setState(() => _isSaving = false);
-      Navigator.pop(context);
-      showSuccessPopup(
-        context,
-        title: 'Berhasil Menambahkan Tanaman!',
-        message:
-            'Tanaman ${_nameController.text.trim()} telah ditambahkan.',
-      );
+      Navigator.pop(context, true);
     } else {
       final updated = widget.plantToEdit!.copyWith(
         name: _nameController.text.trim(),
@@ -118,29 +97,27 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
         wateringIntervalDays: _waterInterval,
         lastWatered: _lastWatered!,
         fertilizerEnabled: _fertilizerEnabled,
-        fertilizerIntervalDays:
-            _fertilizerEnabled ? _fertilizerInterval : 7,
+        fertilizerIntervalDays: _fertilizerEnabled ? _fertilizerInterval : 7,
         lastFertilized: _fertilizerEnabled ? _lastFertilized : null,
+        clearLastFertilized: !_fertilizerEnabled,
       );
       await store.updatePlant(updated);
 
       if (!mounted) return;
       setState(() => _isSaving = false);
-      Navigator.pop(context);
-      showSuccessPopup(
-        context,
-        title: 'Berhasil Mengedit Tanaman!',
-        message:
-            'Data tanaman ${_nameController.text.trim()} telah diperbarui.',
-      );
+      Navigator.pop(context, true);
     }
   }
 
   // ── Helper: Label ────────────────────────────────────────────
 
-  Widget _buildLabel(String text, {bool isRequired = false}) {
+  Widget _buildLabel(
+    String text, {
+    bool isRequired = false,
+    double top = AppSpacing.field,
+  }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0, top: 16.0),
+      padding: EdgeInsets.only(bottom: AppSpacing.item, top: top),
       child: RichText(
         text: TextSpan(
           style: GoogleFonts.poppins(
@@ -171,31 +148,13 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
     return TextFormField(
       controller: controller,
       style: GoogleFonts.poppins(fontSize: 14),
-      validator: validator ??
-          (val) =>
-              (val == null || val.trim().isEmpty) ? 'Wajib diisi' : null,
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle:
-            GoogleFonts.poppins(color: AppColors.textHint, fontSize: 14),
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide:
-              const BorderSide(color: AppColors.primary, width: 1.5),
-        ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      ),
+      // return null = valid, return String = pesan error; dipanggil oleh
+      // formKey.currentState!.validate() saat tombol Simpan ditekan.
+      validator:
+          validator ??
+          (val) => (val == null || val.trim().isEmpty) ? 'Wajib diisi' : null,
+      // Hanya hintText — border, fill, padding diambil dari InputDecorationTheme.
+      decoration: InputDecoration(hintText: hint),
     );
   }
 
@@ -206,10 +165,10 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
     required TextEditingController controller,
   }) {
     return Container(
-      height: 52,
+      height: AppSizes.control,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppRadius.input),
         border: Border.all(color: AppColors.border),
       ),
       child: Row(
@@ -217,8 +176,8 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
           // Tombol minus
           InkWell(
             borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(12),
-              bottomLeft: Radius.circular(12),
+              topLeft: Radius.circular(AppRadius.input),
+              bottomLeft: Radius.circular(AppRadius.input),
             ),
             onTap: () {
               if (value > 1) {
@@ -229,20 +188,22 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
             },
             child: Container(
               width: 52,
-              height: 52,
+              height: AppSizes.control,
               alignment: Alignment.center,
               decoration: const BoxDecoration(
-                border:
-                    Border(right: BorderSide(color: AppColors.border)),
+                border: Border(right: BorderSide(color: AppColors.border)),
               ),
-              child: const Icon(Icons.remove_rounded,
-                  color: AppColors.primary, size: 22),
+              child: const Icon(
+                Icons.remove_rounded,
+                color: AppColors.primary,
+                size: 22,
+              ),
             ),
           ),
 
           // Input angka manual di tengah
           Expanded(
-            child: TextField(
+            child: TextFormField(
               controller: controller,
               keyboardType: TextInputType.number,
               textAlign: TextAlign.center,
@@ -255,13 +216,20 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.zero,
               ),
+              validator: (val) {
+                final parsed = int.tryParse(val?.trim() ?? '');
+                if (parsed == null || parsed < 1 || parsed > 365) {
+                  return 'Masukkan angka 1-365';
+                }
+                return null;
+              },
               onChanged: (val) {
                 final parsed = int.tryParse(val);
                 if (parsed != null && parsed >= 1) {
                   onChanged(parsed);
                 }
               },
-              onSubmitted: (val) {
+              onFieldSubmitted: (val) {
                 final parsed = int.tryParse(val);
                 if (parsed == null || parsed < 1) {
                   controller.text = '$value';
@@ -273,24 +241,26 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
           // Tombol plus
           InkWell(
             borderRadius: const BorderRadius.only(
-              topRight: Radius.circular(12),
-              bottomRight: Radius.circular(12),
+              topRight: Radius.circular(AppRadius.input),
+              bottomRight: Radius.circular(AppRadius.input),
             ),
             onTap: () {
-              final newVal = value + 1;
+              final newVal = value < 365 ? value + 1 : 365;
               onChanged(newVal);
               controller.text = '$newVal';
             },
             child: Container(
               width: 52,
-              height: 52,
+              height: AppSizes.control,
               alignment: Alignment.center,
               decoration: const BoxDecoration(
-                border:
-                    Border(left: BorderSide(color: AppColors.border)),
+                border: Border(left: BorderSide(color: AppColors.border)),
               ),
-              child: const Icon(Icons.add_rounded,
-                  color: AppColors.primary, size: 22),
+              child: const Icon(
+                Icons.add_rounded,
+                color: AppColors.primary,
+                size: 22,
+              ),
             ),
           ),
         ],
@@ -303,70 +273,76 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
   Widget _buildDatePicker({
     required DateTime? date,
     required String hint,
-    required VoidCallback onTap,
+    required Future<DateTime?> Function() onPick,
+    required ValueChanged<DateTime> onChanged,
+    required String errorText,
+    required bool isRequired,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              date == null
-                  ? hint
-                  : DateFormat('dd MMM yyyy').format(date),
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: date == null
-                    ? AppColors.textHint
-                    : AppColors.textPrimary,
+    return FormField<DateTime>(
+      initialValue: date,
+      validator: (value) => isRequired && value == null ? errorText : null,
+      builder: (field) {
+        final selectedDate = field.value;
+        return GestureDetector(
+          onTap: () async {
+            final pickedDate = await onPick();
+            if (!mounted) return;
+            if (pickedDate != null) {
+              field.didChange(pickedDate);
+              onChanged(pickedDate);
+            }
+          },
+          child: Container(
+            padding: const EdgeInsets.all(AppSpacing.card),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(AppRadius.input),
+              border: Border.all(
+                color: field.hasError ? AppColors.danger : AppColors.border,
               ),
             ),
-            const Icon(Icons.calendar_today_rounded,
-                size: 20, color: AppColors.textHint),
-          ],
-        ),
-      ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  selectedDate == null
+                      ? hint
+                      : DateFormat('dd MMM yyyy').format(selectedDate),
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: selectedDate == null
+                        ? AppColors.textHint
+                        : AppColors.textPrimary,
+                  ),
+                ),
+                const Icon(
+                  Icons.calendar_today_rounded,
+                  size: 20,
+                  color: AppColors.textHint,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          _isEdit ? 'Edit Tanaman' : 'Tambah Tanaman',
-          style: GoogleFonts.poppins(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
-          ),
-        ),
+        title: Text(_isEdit ? 'Edit Tanaman' : 'Tambah Tanaman'),
       ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final hPad = (constraints.maxWidth * 0.05).clamp(16.0, 24.0);
-          return Form(
-            key: _formKey,
-            child: SingleChildScrollView(
-              padding: EdgeInsets.symmetric(
-                  horizontal: hPad, vertical: 20),
-              child: Column(
+      body: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.page),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ── Foto Tanaman Placeholder ────────────────────────
@@ -374,8 +350,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content:
-                          Text('Fitur foto tanaman akan segera hadir!'),
+                      content: Text('Fitur foto tanaman akan segera hadir!'),
                     ),
                   );
                 },
@@ -384,15 +359,18 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
                   height: 150,
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(AppRadius.card),
                     border: Border.all(color: AppColors.border),
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.camera_alt_outlined,
-                          size: 36, color: AppColors.textHint),
-                      const SizedBox(height: 8),
+                      const Icon(
+                        Icons.camera_alt_outlined,
+                        size: 36,
+                        color: AppColors.textHint,
+                      ),
+                      const SizedBox(height: AppSpacing.micro),
                       Text(
                         'Tambah Foto Tanaman',
                         style: GoogleFonts.poppins(
@@ -404,7 +382,9 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
                       Text(
                         'Pilih dari galeri atau ambil foto',
                         style: GoogleFonts.poppins(
-                            fontSize: 12, color: AppColors.textHint),
+                          fontSize: 12,
+                          color: AppColors.textHint,
+                        ),
                       ),
                     ],
                   ),
@@ -416,6 +396,12 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
               _buildTextField(
                 controller: _nameController,
                 hint: 'Contoh: Monstera Deliciosa',
+                validator: (value) {
+                  final name = value?.trim() ?? '';
+                  return name.length < 2
+                      ? 'Nama tanaman minimal 2 karakter'
+                      : null;
+                },
               ),
 
               // [3] Jenis Tanaman — input teks bebas
@@ -423,6 +409,12 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
               _buildTextField(
                 controller: _speciesController,
                 hint: 'Contoh: Monstera, Kaktus, Sansevieria...',
+                validator: (value) {
+                  final species = value?.trim() ?? '';
+                  return species.length < 2
+                      ? 'Jenis tanaman minimal 2 karakter'
+                      : null;
+                },
               ),
 
               // ── Interval Siram — [4] stepper + input angka ──────
@@ -438,23 +430,23 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
               _buildDatePicker(
                 date: _lastWatered,
                 hint: 'Pilih tanggal',
-                onTap: () async {
-                  final d = await showDatePicker(
-                    context: context,
-                    initialDate: _lastWatered ?? DateTime.now(),
-                    firstDate: DateTime(2000),
-                    lastDate: DateTime.now(),
-                  );
-                  if (d != null) setState(() => _lastWatered = d);
-                },
+                errorText: 'Pilih tanggal terakhir disiram',
+                isRequired: true,
+                onPick: () => showDatePicker(
+                  context: context,
+                  initialDate: _lastWatered ?? DateTime.now(),
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime.now(),
+                ),
+                onChanged: (date) => setState(() => _lastWatered = date),
               ),
 
               // [2] Pengaturan Pupuk — muncul saat toggle ON
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.section),
               Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(AppRadius.card),
                   border: Border.all(color: AppColors.border),
                 ),
                 child: Column(
@@ -462,12 +454,15 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
                   children: [
                     // Header toggle
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+                      padding: const EdgeInsets.all(AppSpacing.card),
                       child: Row(
                         children: [
-                          const Icon(Icons.eco_rounded,
-                              color: AppColors.primary, size: 22),
-                          const SizedBox(width: 10),
+                          const Icon(
+                            Icons.eco_rounded,
+                            color: AppColors.primary,
+                            size: 22,
+                          ),
+                          const SizedBox(width: AppSpacing.item),
                           Expanded(
                             child: Text(
                               'Aktifkan Pupuk',
@@ -484,8 +479,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
                             onChanged: (val) {
                               setState(() {
                                 _fertilizerEnabled = val;
-                                // [1] Tidak auto-set tanggal — biarkan null agar
-                                // user wajib memilih sendiri (seperti Terakhir Disiram)
+                                // Tanggal tetap dipilih pengguna saat pupuk aktif.
                               });
                             },
                           ),
@@ -495,21 +489,18 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
 
                     // [2] Konten pupuk tampil saat aktif
                     if (_fertilizerEnabled) ...[
-                      const Divider(
-                          height: 1, color: AppColors.border),
+                      const Divider(height: 1, color: AppColors.border),
                       Padding(
-                        padding:
-                            const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        padding: const EdgeInsets.all(AppSpacing.card),
                         child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             // Interval Pupuk — [4] stepper + input angka
-                            _buildLabel('Interval Pupuk (hari)'),
+                            _buildLabel('Interval Pupuk (hari)', top: 0),
                             _buildNumberStepper(
                               value: _fertilizerInterval,
-                              onChanged: (val) => setState(
-                                  () => _fertilizerInterval = val),
+                              onChanged: (val) =>
+                                  setState(() => _fertilizerInterval = val),
                               controller: _fertilizerIntervalController,
                             ),
 
@@ -518,19 +509,16 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
                             _buildDatePicker(
                               date: _lastFertilized,
                               hint: 'Pilih tanggal',
-                              onTap: () async {
-                                final d = await showDatePicker(
-                                  context: context,
-                                  initialDate:
-                                      _lastFertilized ?? DateTime.now(),
-                                  firstDate: DateTime(2000),
-                                  lastDate: DateTime.now(),
-                                );
-                                if (d != null) {
-                                  setState(
-                                      () => _lastFertilized = d);
-                                }
-                              },
+                              errorText: 'Pilih tanggal terakhir dipupuk',
+                              isRequired: _fertilizerEnabled,
+                              onPick: () => showDatePicker(
+                                context: context,
+                                initialDate: _lastFertilized ?? DateTime.now(),
+                                firstDate: DateTime(2000),
+                                lastDate: DateTime.now(),
+                              ),
+                              onChanged: (date) =>
+                                  setState(() => _lastFertilized = date),
                             ),
                           ],
                         ),
@@ -541,46 +529,30 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
               ),
 
               // ── Tombol Simpan ────────────────────────────────────
-              const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: _isSaving ? null : _save,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor:
-                        AppColors.primary.withValues(alpha: 0.6),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    elevation: 0,
+              const SizedBox(height: AppSpacing.section),
+              // minimumSize sudah diatur di ElevatedButtonTheme (main.dart)
+              ElevatedButton(
+                onPressed: _isSaving ? null : _save,
+                style: ElevatedButton.styleFrom(
+                  disabledBackgroundColor: AppColors.primary.withValues(
+                    alpha: 0.6,
                   ),
-                  child: _isSaving
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2.5,
-                          ),
-                        )
-                      : Text(
-                          'Simpan',
-                          style: GoogleFonts.poppins(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
                 ),
+                child: _isSaving
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2.5,
+                        ),
+                      )
+                    : const Text('Simpan'),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: AppSpacing.section),
             ],
           ),
         ),
-      );
-        },
       ),
     );
   }
