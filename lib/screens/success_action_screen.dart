@@ -64,9 +64,10 @@ class SuccessActionScreen extends StatelessWidget {
               const SizedBox(height: AppSpacing.section),
               SecondaryButton(
                 label: 'Kembali ke Daftar',
-                onPressed: () =>
-                    Navigator.popUntil(
-                        context, ModalRoute.withName(AppRoutes.home)),
+                onPressed: () => Navigator.popUntil(
+                  context,
+                  ModalRoute.withName(AppRoutes.home),
+                ),
               ),
             ],
           ),

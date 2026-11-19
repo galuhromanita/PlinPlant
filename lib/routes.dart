@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'models/plant_model.dart';
 import 'screens/about_app_screen.dart';
@@ -77,33 +80,43 @@ class AppRouter {
           settings,
         );
       default:
-        // ── Tangani deep link OAuth callback dari Supabase ──────────
-        //
-        // Alur OAuth:
-        // 1. Browser redirect ke io.supabase.plinplant://login-callback?code=...
-        // 2. Android intent filter menangkap deep link, membuka app
-        // 3. supabase_flutter (via app_links) mengekstrak URI:
-        //    - Flutter deep link handler menghilangkan scheme+host
-        //    - Hanya path (/) + query (?code=...) dikirim ke Navigator
-        //    - Route name menjadi: "/?code=UUID..." atau "/login-callback?code=..."
-        //      atau terkadang path lengkap dengan scheme
-        // 4. Route ini TIDAK cocok dengan case '/' (exact match) → masuk default
-        //
-        // Solusi: deteksi kehadiran "code=" di route name (parameter OAuth),
-        // atau "login-callback", atau "io.supabase" sebagai penanda callback.
-        // Render _OAuthCallbackPage yang secara aktif menunggu auth selesai
-        // lalu navigasi ke home, menghilangkan flash "halaman tidak ditemukan".
-        final routeName = settings.name ?? '';
-        if (routeName.contains('code=') ||
-            routeName.contains('login-callback') ||
-            routeName.startsWith('io.supabase')) {
-          return MaterialPageRoute(
-            settings: settings,
-            builder: (_) => const _OAuthCallbackPage(),
+        if (_isOAuthCallbackRoute(settings.name)) {
+          return _fadeRoute(
+            OAuthCallbackScreen(callbackUri: _callbackUri(settings.name!)),
+            settings,
           );
         }
         return _notFound(settings);
     }
+  }
+
+  static Uri _callbackUri(String routeName) {
+    final parsed = Uri.tryParse(routeName);
+    final redirect = Uri.parse(UserSession.redirectUri);
+    if (parsed == null) return redirect;
+
+    if (parsed.scheme.isNotEmpty && parsed.host.isNotEmpty) {
+      return parsed;
+    }
+
+    return Uri(
+      scheme: redirect.scheme,
+      host: redirect.host,
+      queryParameters: parsed.queryParameters.isEmpty
+          ? null
+          : parsed.queryParameters,
+      fragment: parsed.fragment.isEmpty ? null : parsed.fragment,
+    );
+  }
+
+  static bool _isOAuthCallbackRoute(String? routeName) {
+    if (routeName == null || routeName.isEmpty) return false;
+
+    final uri = Uri.tryParse(routeName);
+    return uri?.queryParameters.containsKey('code') == true ||
+        uri?.queryParameters.containsKey('error') == true ||
+        routeName.contains('login-callback') ||
+        routeName.startsWith('io.supabase.plinplant');
   }
 
   static MaterialPageRoute<void> _notFound(RouteSettings settings) {
@@ -151,87 +164,139 @@ class AppRouter {
   }
 }
 
-// ════════════════════════════════════════════════════════════════
-// OAUTH CALLBACK PAGE
-// ════════════════════════════════════════════════════════════════
-//
-// Widget yang ditampilkan saat deep link OAuth callback masuk
-// sebagai route (misalnya "/?code=UUID").
-//
-// Halaman ini mendengarkan UserSession: begitu auth berhasil dan
-// currentUser terisi, langsung navigasi ke home — menghilangkan
-// flash "halaman tidak ditemukan" sepenuhnya.
-//
-// Jika setelah 5 detik auth belum selesai, fallback navigasi ke
-// login agar pengguna tidak terjebak di halaman kosong.
-// ════════════════════════════════════════════════════════════════
+class OAuthCallbackScreen extends StatefulWidget {
+  final Uri callbackUri;
 
-class _OAuthCallbackPage extends StatefulWidget {
-  const _OAuthCallbackPage();
+  const OAuthCallbackScreen({required this.callbackUri, super.key});
 
   @override
-  State<_OAuthCallbackPage> createState() => _OAuthCallbackPageState();
+  State<OAuthCallbackScreen> createState() => _OAuthCallbackScreenState();
 }
 
-class _OAuthCallbackPageState extends State<_OAuthCallbackPage> {
+class _OAuthCallbackScreenState extends State<OAuthCallbackScreen> {
   bool _navigated = false;
+  bool _showRetry = false;
+  String? _callbackError;
+  Timer? _retryTimer;
 
   @override
   void initState() {
     super.initState();
-    // Dengarkan perubahan auth state
     UserSession().addListener(_onAuthChanged);
-    // Cek apakah user sudah login (mungkin callback sudah diproses)
-    _checkAlreadyLoggedIn();
+    debugPrint(
+      '[AUTH DEBUG] OAuth callback route diterima; '
+      'code tersedia: ${widget.callbackUri.queryParameters.containsKey('code')}',
+    );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_exchangeCallback());
+      _retryTimer = Timer(const Duration(seconds: 15), () {
+        if (!mounted || _navigated) return;
+        setState(() => _showRetry = true);
+        debugPrint('[AUTH DEBUG] OAuth callback belum menghasilkan session');
+      });
+    });
+  }
+
+  Future<void> _exchangeCallback() async {
+    try {
+      AuthException? lastRetryableError;
+      for (var attempt = 1; attempt <= 3; attempt++) {
+        try {
+          await Supabase.instance.client.auth.getSessionFromUrl(
+            widget.callbackUri,
+          );
+          lastRetryableError = null;
+          break;
+        } on AuthRetryableFetchException catch (error) {
+          lastRetryableError = error;
+          debugPrint(
+            '[AUTH DEBUG] Pertukaran callback gagal sementara '
+            '(percobaan $attempt/3)',
+          );
+          if (attempt < 3) {
+            await Future<void>.delayed(const Duration(seconds: 2));
+          }
+        }
+      }
+      if (lastRetryableError != null) {
+        throw lastRetryableError;
+      }
+      await UserSession().restoreCurrentSession();
+    } catch (error) {
+      debugPrint(
+        '[AUTH DEBUG] Pertukaran OAuth callback gagal: '
+        '${error.runtimeType}',
+      );
+      if (mounted) {
+        setState(() {
+          _showRetry = true;
+          _callbackError = error is AuthRetryableFetchException
+              ? 'Perangkat tidak dapat terhubung ke Supabase.'
+              : 'Supabase menolak callback OAuth.';
+        });
+      }
+    }
+    _navigateIfAuthenticated();
   }
 
   @override
   void dispose() {
+    _retryTimer?.cancel();
     UserSession().removeListener(_onAuthChanged);
     super.dispose();
   }
 
-  void _checkAlreadyLoggedIn() {
-    // Gunakan addPostFrameCallback agar navigasi tidak terjadi saat build
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _navigated) return;
-      if (UserSession().currentUser != null) {
-        _navigateToHome();
-      } else {
-        // Fallback: jika setelah 5 detik auth belum selesai, kembali ke login
-        Future.delayed(const Duration(seconds: 5), () {
-          if (!mounted || _navigated) return;
-          if (UserSession().currentUser == null) {
-            _navigated = true;
-            Navigator.of(context).pushReplacementNamed(AppRoutes.login);
-          }
-        });
-      }
-    });
-  }
-
   void _onAuthChanged() {
-    if (!mounted || _navigated) return;
-    if (UserSession().currentUser != null) {
-      _navigateToHome();
-    }
+    _navigateIfAuthenticated();
   }
 
-  void _navigateToHome() {
-    if (_navigated) return;
+  void _navigateIfAuthenticated() {
+    if (!mounted || _navigated || UserSession().currentUser == null) return;
+
     _navigated = true;
-    // pushNamedAndRemoveUntil agar seluruh stack (termasuk LoginScreen
-    // dan halaman ini) dibersihkan, hanya HomeScreen yang tersisa.
-    Navigator.of(context).pushNamedAndRemoveUntil(
-      AppRoutes.home,
-      (_) => false,
-    );
+    debugPrint('[AUTH DEBUG] Navigasi ke Home dari OAuth callback');
+    Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.home, (_) => false);
+  }
+
+  void _returnToLogin() {
+    if (!mounted || _navigated) return;
+
+    _navigated = true;
+    Navigator.of(context)
+        .pushNamedAndRemoveUntil(AppRoutes.login, (_) => false);
   }
 
   @override
   Widget build(BuildContext context) {
-    // Tampilkan layar putih kosong (tanpa teks error) selama menunggu
-    // auth callback diproses oleh Supabase SDK
-    return const Scaffold(backgroundColor: Colors.white);
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: _showRetry
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Login Google belum selesai. Periksa koneksi dan '
+                      'konfigurasi OAuth, lalu coba lagi.',
+                      textAlign: TextAlign.center,
+                    ),
+                    if (_callbackError != null) ...[
+                      const SizedBox(height: 8),
+                      Text(_callbackError!, textAlign: TextAlign.center),
+                    ],
+                    const SizedBox(height: 16),
+                    OutlinedButton(
+                      onPressed: _returnToLogin,
+                      child: const Text('Kembali ke Login'),
+                    ),
+                  ],
+                )
+              : const CircularProgressIndicator(),
+        ),
+      ),
+    );
   }
 }

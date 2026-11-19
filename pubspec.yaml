@@ -1,5 +1,5 @@
 name: plinplant
-description: "A new Flutter project."
+description: "PlinPlant is a plant management application that helps users manage plant collections, document plant photos, and monitor plant care activities."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -31,19 +31,18 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.8
   google_fonts: ^8.2.1
   intl: ^0.20.3
   supabase_flutter: ^2.8.4
   image_picker: ^1.1.2
   permission_handler: ^12.0.1
+  device_info_plus: ^13.3.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_launcher_icons: ^0.14.4
+  shared_preferences: ^2.4.28
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -68,8 +67,23 @@ flutter:
    - assets/icon/plinplant_logo.png
    - assets/icon/plinplant_logo_white.png
    - assets/icon/plinplant_logo_green.png
+   - assets/icon/google_g_logo.png
    - assets/images/gambar_login.png
    - assets/images/gambar_total_tanaman.png
+
+  fonts:
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/Poppins-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Poppins-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Poppins-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Poppins-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Poppins-ExtraBold.ttf
+          weight: 800
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

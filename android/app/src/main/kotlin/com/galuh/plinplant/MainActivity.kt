@@ -1,4 +1,4 @@
-package com.example.plinplant
+package com.galuh.plinplant
 
 import io.flutter.embedding.android.FlutterActivity
 

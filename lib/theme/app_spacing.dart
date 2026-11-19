@@ -1,4 +1,3 @@
-
 class AppSpacing {
   static const double micro = 4;
   static const double tight = 8;

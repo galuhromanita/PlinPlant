@@ -1,5 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Diperlukan untuk OAuth Supabase, API, Storage, dan sinkronisasi data. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
     <!-- Izin kamera untuk capture foto -->
     <uses-permission android:name="android.permission.CAMERA"/>
 
@@ -9,10 +12,9 @@
         android:maxSdkVersion="32"/>
 
     <!-- Izin baca gambar untuk Android 13+ (SDK 33+) -->
-    <!-- image_picker akan menggunakan Android Photo Picker sehingga
-         izin ini sebenarnya opsional di Android 13+, namun tetap
-         ditambahkan untuk kompatibilitas fallback. -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <!-- Akses foto yang dipilih pada Android 14+. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED"/>
 
     <application
         android:label="PlinPlant"

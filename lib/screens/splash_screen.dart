@@ -64,9 +64,13 @@ class _SplashScreenState extends State<SplashScreen>
     final session = UserSession();
     if (session.currentUser != null) {
       // Sudah login → langsung ke home
+      debugPrint('[AUTH DEBUG] Splash menemukan session; navigasi ke Home');
       Navigator.of(context).pushReplacementNamed(AppRoutes.home);
     } else {
       // Belum login → ke halaman login
+      debugPrint(
+        '[AUTH DEBUG] Splash tidak menemukan session; navigasi ke Login',
+      );
       Navigator.of(context).pushReplacementNamed(AppRoutes.login);
     }
   }

@@ -1,13 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/user_model.dart';
 import '../stores/plant_store.dart';
 
-
 class UserSession extends ChangeNotifier {
   static final UserSession _instance = UserSession._internal();
+
   factory UserSession() => _instance;
+
   UserSession._internal();
 
   final _supabase = Supabase.instance.client;
@@ -15,61 +18,104 @@ class UserSession extends ChangeNotifier {
   UserModel? _currentUser;
   UserModel? get currentUser => _currentUser;
 
-  // ══════════════════════════════════════════════════════════════
-  // SINKRONISASI AWAL (dipanggil di splash_screen atau main)
-  // Cek apakah masih ada session aktif dari sebelumnya
-  // ══════════════════════════════════════════════════════════════
-  Future<void> syncFromSupabase() async {
+  static const redirectUri = 'io.supabase.plinplant://login-callback';
+
+  Future<void>? _syncFuture;
+
+  // SINKRONISASI SESSION DAN AUTH STATE
+  Future<void> syncFromSupabase() {
+    return _syncFuture ??= _syncFromSupabase();
+  }
+
+  Future<void> _syncFromSupabase() async {
+    debugPrint('[AUTH DEBUG] Supabase auth state sync dimulai');
+
+    _supabase.auth.onAuthStateChange.listen(
+      (data) {
+        unawaited(_handleAuthStateChange(data));
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        debugPrint(
+          '[AUTH DEBUG] Auth state listener gagal: ${error.runtimeType}',
+        );
+      },
+    );
+
     final session = _supabase.auth.currentSession;
+    debugPrint(
+      '[AUTH DEBUG] Session awal tersedia: ${session != null}; '
+      'User ID tersedia: ${session?.user.id != null}',
+    );
+
     if (session != null) {
-      await _fetchAndSetProfile(session.user);
+      await restoreCurrentSession();
     }
+  }
 
-    // Dengarkan perubahan auth state (login / logout / token refresh)
-    _supabase.auth.onAuthStateChange.listen((data) async {
-      final event = data.event;
-      final session = data.session;
+  Future<bool> restoreCurrentSession() async {
+    final session = _supabase.auth.currentSession;
+    debugPrint(
+      '[AUTH DEBUG] Pemulihan session: ${session != null}; '
+      'User ID tersedia: ${session?.user.id != null}',
+    );
+    if (session == null) return false;
 
-      if (event == AuthChangeEvent.signedIn && session != null) {
-        await _fetchAndSetProfile(session.user);
-        // Muat data tanaman setelah login
-        await PlantStore().fetchPlants();
-        await PlantStore().fetchHistories();
-      } else if (event == AuthChangeEvent.signedOut) {
+    await _setAuthenticatedUser(session.user);
+    await _loadPlantData();
+    return true;
+  }
+
+  Future<void> _handleAuthStateChange(AuthState data) async {
+    final session = data.session;
+    debugPrint(
+      '[AUTH DEBUG] Auth event diterima: ${data.event}; '
+      'Session tersedia: ${session != null}; '
+      'User ID tersedia: ${session?.user.id != null}',
+    );
+
+    try {
+      if (data.event == AuthChangeEvent.signedIn && session != null) {
+        await _setAuthenticatedUser(session.user);
+        await _loadPlantData();
+      } else if (data.event == AuthChangeEvent.signedOut) {
         _currentUser = null;
         PlantStore().clear();
         notifyListeners();
-      } else if (event == AuthChangeEvent.tokenRefreshed && session != null) {
-        // Session diperpanjang — tidak perlu re-fetch profil
-        if (_currentUser == null) {
-          await _fetchAndSetProfile(session.user);
-        }
+        debugPrint('[AUTH DEBUG] Session dihapus setelah logout');
+      } else if (data.event == AuthChangeEvent.tokenRefreshed &&
+          session != null &&
+          _currentUser == null) {
+        await _setAuthenticatedUser(session.user);
       }
-    });
+    } catch (error) {
+      debugPrint(
+        '[AUTH DEBUG] Pemrosesan auth event gagal: ${error.runtimeType}',
+      );
+    }
   }
 
-
-  // LOGIN DENGAN GOOGLE (OAuth via Supabase)
-  // Membuka browser — callback ditangkap oleh deep link Android
+  // LOGIN DENGAN GOOGLE
   Future<void> loginWithGoogle() async {
-    await _supabase.auth.signInWithOAuth(
-      OAuthProvider.google,
-      // Deep link harus sesuai dengan AndroidManifest.xml
-      redirectTo: 'io.supabase.plinplant://login-callback',
-    );
-    // Hasil login ditangani oleh onAuthStateChange di syncFromSupabase()
-  }
+    debugPrint('[AUTH DEBUG] Memulai login Google');
 
+    final launched = await _supabase.auth.signInWithOAuth(
+      OAuthProvider.google,
+      redirectTo: redirectUri,
+    );
+    debugPrint('[AUTH DEBUG] Browser OAuth dibuka: $launched');
+    if (!launched) {
+      throw StateError('Browser OAuth tidak dapat dibuka');
+    }
+  }
 
   // LOGOUT
   Future<void> logout() async {
+    debugPrint('[AUTH DEBUG] Logout dimulai');
     await _supabase.auth.signOut();
-    // onAuthStateChange akan set _currentUser = null dan clear store
   }
 
-  // PRIVATE: Ambil profil dari tabel `profiles`
-  // Trigger handle_user_profile sudah mengisi tabel ini otomatis
-  Future<void> _fetchAndSetProfile(User supabaseUser) async {
+  // MENGAMBIL PROFIL PENGGUNA
+  Future<void> _setAuthenticatedUser(User supabaseUser) async {
     try {
       final profileData = await _supabase
           .from('profiles')
@@ -77,29 +123,46 @@ class UserSession extends ChangeNotifier {
           .eq('id', supabaseUser.id)
           .single();
 
-      final map = profileData;
       _currentUser = UserModel(
         id: supabaseUser.id,
-        name: (map['nama'] as String?)?.isNotEmpty == true
-            ? map['nama'] as String
+        name: (profileData['nama'] as String?)?.isNotEmpty == true
+            ? profileData['nama'] as String
             : 'Pengguna',
-        email: (map['email'] as String?) ?? supabaseUser.email ?? '',
-        // foto dari metadata Google OAuth (tidak disimpan di profiles)
+        email: (profileData['email'] as String?) ?? supabaseUser.email ?? '',
         photoUrl: supabaseUser.userMetadata?['avatar_url'] as String?,
       );
+      debugPrint('[AUTH DEBUG] Profil berhasil dimuat');
     } catch (e) {
-      // Fallback: gunakan metadata dari Google jika profiles belum ada
-      debugPrint('[UserSession] _fetchAndSetProfile error: $e');
+      debugPrint(
+        '[AUTH DEBUG] Profil gagal dimuat (${e.runtimeType}); '
+        'menggunakan profil fallback',
+      );
+
       final meta = supabaseUser.userMetadata ?? {};
+      final metadataName = meta['full_name'] ?? meta['name'];
+      final name = metadataName is String && metadataName.isNotEmpty
+          ? metadataName
+          : 'Pengguna';
+      final metadataPhoto = meta['avatar_url'];
+
       _currentUser = UserModel(
         id: supabaseUser.id,
-        name: ((meta['full_name'] ?? meta['name'] ?? '') as String).isNotEmpty
-            ? (meta['full_name'] ?? meta['name']) as String
-            : 'Pengguna',
+        name: name,
         email: supabaseUser.email ?? '',
-        photoUrl: meta['avatar_url'] as String?,
+        photoUrl: metadataPhoto is String ? metadataPhoto : null,
       );
     }
+
     notifyListeners();
+    debugPrint(
+      '[AUTH DEBUG] User tersedia: ${_currentUser != null}; '
+      'User ID tersedia: ${_currentUser?.id != null}',
+    );
+  }
+
+  Future<void> _loadPlantData() async {
+    await PlantStore().fetchPlants();
+    await PlantStore().fetchHistories();
+    debugPrint('[AUTH DEBUG] Data aplikasi selesai dimuat');
   }
 }

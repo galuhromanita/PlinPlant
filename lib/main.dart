@@ -10,12 +10,15 @@ import 'theme/app_spacing.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  GoogleFonts.config.allowRuntimeFetching = false;
 
   // ── Inisialisasi Supabase (wajib sebelum runApp) ──
   await Supabase.initialize(
     url: SupabaseConfig.url,
     publishableKey: SupabaseConfig.anonKey,
+    authOptions: const FlutterAuthClientOptions(detectSessionInUri: false),
   );
+  debugPrint('[AUTH DEBUG] Supabase berhasil diinisialisasi');
 
   // ── Sinkronisasi sesi auth state ──
   await UserSession().syncFromSupabase();

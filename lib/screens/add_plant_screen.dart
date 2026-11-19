@@ -150,26 +150,18 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
 
     XFile? picked;
     if (action == _PhotoOption.gallery) {
-      // pickFromGallery() sudah menangani permission Android ≤12 secara internal.
-      picked = await _photoService.pickFromGallery();
-
-      // Jika null: kemungkinan permission ditolak (Android ≤12)
-      if (!mounted) return;
-      if (picked == null) {
-        final permanentlyDenied =
-            await _photoService.isGalleryPermissionPermanentlyDenied();
-        // Hanya tampilkan dialog jika permission benar-benar diperlukan & ditolak
-        if (permanentlyDenied) {
-          await _showPermissionDenied(
-            title: 'Akses galeri diperlukan',
-            message:
-                'Izinkan akses galeri di Pengaturan untuk memilih foto tanaman.',
-            permanentlyDenied: true,
-          );
-        }
-        // Jika bukan karena permission (user cancel), tidak perlu dialog
+      final allowed = await _photoService.requestGalleryPermission();
+      if (!allowed) {
+        if (!mounted) return;
+        await _showPermissionDenied(
+          title: 'Akses galeri diperlukan',
+          message: 'Izinkan akses galeri untuk memilih foto tanaman.',
+          permanentlyDenied: await _photoService
+              .isGalleryPermissionPermanentlyDenied(),
+        );
         return;
       }
+      picked = await _photoService.pickFromGallery();
     } else {
       final allowed = await _photoService.requestCameraPermission();
       if (!allowed) {
@@ -178,8 +170,8 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
           title: 'Akses kamera diperlukan',
           message:
               'Izinkan akses kamera untuk mengambil foto tanaman langsung.',
-          permanentlyDenied:
-              await _photoService.isCameraPermissionPermanentlyDenied(),
+          permanentlyDenied: await _photoService
+              .isCameraPermissionPermanentlyDenied(),
         );
         return;
       }

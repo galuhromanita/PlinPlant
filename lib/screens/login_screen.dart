@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -13,13 +15,15 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   bool _isLoading = false;
   bool _navigated = false;
+  bool _oauthInProgress = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Dengarkan perubahan auth — ketika OAuth selesai, user_session
     // akan set currentUser, dan listener ini menangkap perubahan itu.
     UserSession().addListener(_onAuthChanged);
@@ -27,37 +31,82 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     UserSession().removeListener(_onAuthChanged);
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _oauthInProgress) {
+      debugPrint('[AUTH DEBUG] Aplikasi kembali aktif setelah OAuth');
+      unawaited(_restoreSessionAfterOAuth());
+    }
+  }
+
   void _onAuthChanged() {
-    // Ketika user berhasil login via OAuth callback, navigasi ke home.
-    // Gunakan pushNamedAndRemoveUntil untuk membersihkan seluruh stack
-    // navigasi (termasuk _OAuthCallbackPage yang mungkin ada di atas).
-    // Guard _navigated mencegah double navigation jika listener
-    // dari _OAuthCallbackPage juga fire bersamaan.
     if (_navigated) return;
     if (UserSession().currentUser != null && mounted) {
       _navigated = true;
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        AppRoutes.home,
-        (_) => false,
-      );
+      _oauthInProgress = false;
+      setState(() => _isLoading = false);
+      debugPrint('[AUTH DEBUG] Navigasi ke Home setelah session tersedia');
+      Navigator.of(context)
+          .pushNamedAndRemoveUntil(AppRoutes.home, (_) => false);
     }
+  }
+
+  Future<void> _restoreSessionAfterOAuth() async {
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+
+    for (var attempt = 0; attempt < 10; attempt++) {
+      if (!mounted || !_oauthInProgress) return;
+
+      try {
+        if (await UserSession().restoreCurrentSession()) return;
+      } catch (error) {
+        debugPrint(
+          '[AUTH DEBUG] Pemulihan session gagal: ${error.runtimeType}',
+        );
+      }
+
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+    }
+
+    if (!mounted || !_oauthInProgress) return;
+    _oauthInProgress = false;
+    setState(() => _isLoading = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Session Google belum diterima aplikasi. Periksa konfigurasi OAuth '
+          'dan coba lagi.',
+        ),
+      ),
+    );
   }
 
   Future<void> _handleGoogleLogin() async {
     setState(() => _isLoading = true);
+    _oauthInProgress = true;
 
-    // OAuth membuka browser — setelah kembali, onAuthStateChange
-    // di UserSession akan trigger _onAuthChanged di atas
-    await UserSession().loginWithGoogle();
-
-    // signInWithOAuth kembali segera setelah browser dibuka.
-    // Jangan navigasi di sini — tunggu callback dari auth listener.
-    if (!mounted) return;
-    setState(() => _isLoading = false);
+    try {
+      await UserSession().loginWithGoogle();
+    } catch (error) {
+      debugPrint(
+        '[AUTH DEBUG] Login Google gagal dimulai: ${error.runtimeType}',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Login Google tidak dapat dimulai. Periksa koneksi lalu coba lagi.',
+          ),
+        ),
+      );
+      _oauthInProgress = false;
+      setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -207,8 +256,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                                 padding: const EdgeInsets.all(
                                                   5,
                                                 ),
-                                                child: Image.network(
-                                                  'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png',
+                                                child: Image.asset(
+                                                  'assets/icon/google_g_logo.png',
                                                   fit: BoxFit.contain,
                                                   errorBuilder: (_, _, _) =>
                                                       const Icon(

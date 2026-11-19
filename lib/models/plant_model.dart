@@ -7,15 +7,15 @@ import 'dart:math';
 import 'plant_status.dart';
 
 class PlantModel {
-  final String id;        // id_tanaman (BIGINT → String)
-  String name;            // nama_tanaman
-  String species;         // jenis_tanaman
-  String? imagePath;      // foto_url
-  int wateringIntervalDays;    // interval_siram
-  DateTime? lastWatered;       // terakhir_siram
-  bool fertilizerEnabled;      // aktif_pupuk
-  int fertilizerIntervalDays;  // interval_pupuk
-  DateTime? lastFertilized;    // terakhir_pupuk
+  final String id; // id_tanaman (BIGINT → String)
+  String name; // nama_tanaman
+  String species; // jenis_tanaman
+  String? imagePath; // foto_url
+  int wateringIntervalDays; // interval_siram
+  DateTime? lastWatered; // terakhir_siram
+  bool fertilizerEnabled; // aktif_pupuk
+  int fertilizerIntervalDays; // interval_pupuk
+  DateTime? lastFertilized; // terakhir_pupuk
 
   PlantModel({
     required this.id,

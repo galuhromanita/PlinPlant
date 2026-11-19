@@ -309,7 +309,28 @@ class _DashboardTab extends StatelessWidget {
             const SizedBox(height: AppSpacing.item),
 
             // Tanaman aman tidak perlu ditampilkan di bagian ini.
-            if (urgentPlants.isEmpty)
+            if (store.totalPlants == 0)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(AppSpacing.card),
+                decoration: BoxDecoration(
+                  color: AppColors.successBg,
+                  borderRadius: BorderRadius.circular(AppRadius.card),
+                  border: Border.all(
+                    color: AppColors.success.withValues(alpha: 0.2),
+                  ),
+                ),
+                child: Text(
+                  'Belum ada tanaman yang ditambahkan',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              )
+            else if (urgentPlants.isEmpty)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(AppSpacing.card),
@@ -329,7 +350,7 @@ class _DashboardTab extends StatelessWidget {
                     ),
                     const SizedBox(height: AppSpacing.item),
                     Text(
-                      'Semua tanaman dalam kondisi baik!',
+                      'Semua tanaman dalam kondisi baik',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.poppins(
                         fontSize: 13,

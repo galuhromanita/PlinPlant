@@ -18,6 +18,17 @@
 	<string>plinplant</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>io.supabase.plinplant</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleShortVersionString</key>
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
@@ -27,9 +38,9 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>PlinPlant memerlukan akses kamera untuk mengambil foto tanaman.</string>
+	<string>PlinPlant membutuhkan izin kamera untuk mengambil foto tanaman.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>PlinPlant memerlukan akses galeri untuk memilih foto tanaman.</string>
+	<string>PlinPlant membutuhkan izin akses galeri untuk memilih foto tanaman.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

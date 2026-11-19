@@ -134,7 +134,8 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                           width: double.infinity,
                           height: heroH,
                           color: AppColors.primaryBg,
-                          child: plant.imagePath != null &&
+                          child:
+                              plant.imagePath != null &&
                                   plant.imagePath!.isNotEmpty
                               ? Image.network(
                                   plant.imagePath!,
@@ -144,12 +145,12 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                                   height: heroH,
                                   loadingBuilder: (_, child, progress) =>
                                       progress == null
-                                          ? child
-                                          : const Center(
-                                              child: CircularProgressIndicator(
-                                                color: AppColors.primary,
-                                              ),
-                                            ),
+                                      ? child
+                                      : const Center(
+                                          child: CircularProgressIndicator(
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
                                   errorBuilder: (ctx, err, stack) => Icon(
                                     Icons.eco_rounded,
                                     size: (w * 0.25).clamp(64.0, 120.0),
