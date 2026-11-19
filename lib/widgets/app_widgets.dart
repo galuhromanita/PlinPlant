@@ -265,21 +265,37 @@ class PlantAvatarPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isNetworkImage = imagePath != null && imagePath!.startsWith('http');
+
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         color: AppColors.primaryBg,
         borderRadius: BorderRadius.circular(size * 0.2),
-        image: imagePath != null
+        image: !isNetworkImage && imagePath != null
             ? DecorationImage(image: AssetImage(imagePath!), fit: BoxFit.cover)
             : null,
       ),
-      child: imagePath == null
-          ? Icon(Icons.eco_rounded, color: AppColors.primary, size: size * 0.5)
+      clipBehavior: Clip.antiAlias,
+      child: isNetworkImage
+          ? Image.network(
+              imagePath!,
+              fit: BoxFit.cover,
+              // key berdasarkan URL agar widget rebuild ketika foto berubah
+              key: ValueKey(imagePath),
+              loadingBuilder: (ctx, child, progress) =>
+                  progress == null ? child : _placeholder(),
+              errorBuilder: (ctx, err, stack) => _placeholder(),
+            )
+          : imagePath == null
+          ? _placeholder()
           : null,
     );
   }
+
+  Widget _placeholder() =>
+      Icon(Icons.eco_rounded, color: AppColors.primary, size: size * 0.5);
 }
 
 /// Card tanaman di list

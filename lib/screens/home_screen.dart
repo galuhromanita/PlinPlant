@@ -28,6 +28,10 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _store.addListener(_refresh);
     _session.addListener(_refresh);
+
+    // Muat data tanaman dan riwayat dari Supabase saat pertama buka home
+    _store.fetchPlants();
+    _store.fetchHistories();
   }
 
   void _refresh() {

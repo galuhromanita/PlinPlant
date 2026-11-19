@@ -9,6 +9,7 @@ import 'screens/login_screen.dart';
 import 'screens/plant_detail_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/success_action_screen.dart';
+import 'stores/user_session.dart';
 
 class AppRoutes {
   static const String splash = '/';
@@ -76,6 +77,31 @@ class AppRouter {
           settings,
         );
       default:
+        // ── Tangani deep link OAuth callback dari Supabase ──────────
+        //
+        // Alur OAuth:
+        // 1. Browser redirect ke io.supabase.plinplant://login-callback?code=...
+        // 2. Android intent filter menangkap deep link, membuka app
+        // 3. supabase_flutter (via app_links) mengekstrak URI:
+        //    - Flutter deep link handler menghilangkan scheme+host
+        //    - Hanya path (/) + query (?code=...) dikirim ke Navigator
+        //    - Route name menjadi: "/?code=UUID..." atau "/login-callback?code=..."
+        //      atau terkadang path lengkap dengan scheme
+        // 4. Route ini TIDAK cocok dengan case '/' (exact match) → masuk default
+        //
+        // Solusi: deteksi kehadiran "code=" di route name (parameter OAuth),
+        // atau "login-callback", atau "io.supabase" sebagai penanda callback.
+        // Render _OAuthCallbackPage yang secara aktif menunggu auth selesai
+        // lalu navigasi ke home, menghilangkan flash "halaman tidak ditemukan".
+        final routeName = settings.name ?? '';
+        if (routeName.contains('code=') ||
+            routeName.contains('login-callback') ||
+            routeName.startsWith('io.supabase')) {
+          return MaterialPageRoute(
+            settings: settings,
+            builder: (_) => const _OAuthCallbackPage(),
+          );
+        }
         return _notFound(settings);
     }
   }
@@ -122,5 +148,90 @@ class AppRouter {
         return SlideTransition(position: animation.drive(tween), child: child);
       },
     );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// OAUTH CALLBACK PAGE
+// ════════════════════════════════════════════════════════════════
+//
+// Widget yang ditampilkan saat deep link OAuth callback masuk
+// sebagai route (misalnya "/?code=UUID").
+//
+// Halaman ini mendengarkan UserSession: begitu auth berhasil dan
+// currentUser terisi, langsung navigasi ke home — menghilangkan
+// flash "halaman tidak ditemukan" sepenuhnya.
+//
+// Jika setelah 5 detik auth belum selesai, fallback navigasi ke
+// login agar pengguna tidak terjebak di halaman kosong.
+// ════════════════════════════════════════════════════════════════
+
+class _OAuthCallbackPage extends StatefulWidget {
+  const _OAuthCallbackPage();
+
+  @override
+  State<_OAuthCallbackPage> createState() => _OAuthCallbackPageState();
+}
+
+class _OAuthCallbackPageState extends State<_OAuthCallbackPage> {
+  bool _navigated = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Dengarkan perubahan auth state
+    UserSession().addListener(_onAuthChanged);
+    // Cek apakah user sudah login (mungkin callback sudah diproses)
+    _checkAlreadyLoggedIn();
+  }
+
+  @override
+  void dispose() {
+    UserSession().removeListener(_onAuthChanged);
+    super.dispose();
+  }
+
+  void _checkAlreadyLoggedIn() {
+    // Gunakan addPostFrameCallback agar navigasi tidak terjadi saat build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _navigated) return;
+      if (UserSession().currentUser != null) {
+        _navigateToHome();
+      } else {
+        // Fallback: jika setelah 5 detik auth belum selesai, kembali ke login
+        Future.delayed(const Duration(seconds: 5), () {
+          if (!mounted || _navigated) return;
+          if (UserSession().currentUser == null) {
+            _navigated = true;
+            Navigator.of(context).pushReplacementNamed(AppRoutes.login);
+          }
+        });
+      }
+    });
+  }
+
+  void _onAuthChanged() {
+    if (!mounted || _navigated) return;
+    if (UserSession().currentUser != null) {
+      _navigateToHome();
+    }
+  }
+
+  void _navigateToHome() {
+    if (_navigated) return;
+    _navigated = true;
+    // pushNamedAndRemoveUntil agar seluruh stack (termasuk LoginScreen
+    // dan halaman ini) dibersihkan, hanya HomeScreen yang tersisa.
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      AppRoutes.home,
+      (_) => false,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Tampilkan layar putih kosong (tanpa teks error) selama menunggu
+    // auth callback diproses oleh Supabase SDK
+    return const Scaffold(backgroundColor: Colors.white);
   }
 }

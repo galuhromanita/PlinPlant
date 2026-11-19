@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../routes.dart';
+import '../stores/user_session.dart';
 import '../theme/app_colors.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -59,8 +60,15 @@ class _SplashScreenState extends State<SplashScreen>
 
     if (!mounted) return;
 
-    // Navigasi ke login menggunakan named route
-    Navigator.of(context).pushReplacementNamed(AppRoutes.login);
+    // Cek apakah user masih login dari sesi sebelumnya
+    final session = UserSession();
+    if (session.currentUser != null) {
+      // Sudah login → langsung ke home
+      Navigator.of(context).pushReplacementNamed(AppRoutes.home);
+    } else {
+      // Belum login → ke halaman login
+      Navigator.of(context).pushReplacementNamed(AppRoutes.login);
+    }
   }
 
   @override

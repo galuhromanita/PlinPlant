@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>PlinPlant memerlukan akses kamera untuk mengambil foto tanaman.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>PlinPlant memerlukan akses galeri untuk memilih foto tanaman.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

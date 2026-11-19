@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -15,18 +15,49 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
+  bool _navigated = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Dengarkan perubahan auth — ketika OAuth selesai, user_session
+    // akan set currentUser, dan listener ini menangkap perubahan itu.
+    UserSession().addListener(_onAuthChanged);
+  }
+
+  @override
+  void dispose() {
+    UserSession().removeListener(_onAuthChanged);
+    super.dispose();
+  }
+
+  void _onAuthChanged() {
+    // Ketika user berhasil login via OAuth callback, navigasi ke home.
+    // Gunakan pushNamedAndRemoveUntil untuk membersihkan seluruh stack
+    // navigasi (termasuk _OAuthCallbackPage yang mungkin ada di atas).
+    // Guard _navigated mencegah double navigation jika listener
+    // dari _OAuthCallbackPage juga fire bersamaan.
+    if (_navigated) return;
+    if (UserSession().currentUser != null && mounted) {
+      _navigated = true;
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        AppRoutes.home,
+        (_) => false,
+      );
+    }
+  }
 
   Future<void> _handleGoogleLogin() async {
     setState(() => _isLoading = true);
 
-    // Async: simulasi proses login Google
+    // OAuth membuka browser — setelah kembali, onAuthStateChange
+    // di UserSession akan trigger _onAuthChanged di atas
     await UserSession().loginWithGoogle();
 
+    // signInWithOAuth kembali segera setelah browser dibuka.
+    // Jangan navigasi di sini — tunggu callback dari auth listener.
     if (!mounted) return;
     setState(() => _isLoading = false);
-
-    // Navigasi ke home menggunakan named route
-    Navigator.of(context).pushReplacementNamed(AppRoutes.home);
   }
 
   @override

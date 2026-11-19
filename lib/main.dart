@@ -1,12 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'config/supabase_config.dart';
 import 'routes.dart';
+import 'stores/user_session.dart';
 import 'theme/app_colors.dart';
 import 'theme/app_spacing.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // ── Inisialisasi Supabase (wajib sebelum runApp) ──
+  await Supabase.initialize(
+    url: SupabaseConfig.url,
+    publishableKey: SupabaseConfig.anonKey,
+  );
+
+  // ── Sinkronisasi sesi auth state ──
+  await UserSession().syncFromSupabase();
+
   runApp(const PlinPlantApp());
 }
 
@@ -19,7 +32,6 @@ class PlinPlantApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'PlinPlant',
       theme: _buildTheme(),
-      // ── Named Routes ─────────────────────────────────────────
       initialRoute: AppRoutes.splash,
       onGenerateRoute: AppRouter.generateRoute,
     );
@@ -34,7 +46,7 @@ class PlinPlantApp extends StatelessWidget {
       textTheme: base,
       scaffoldBackgroundColor: AppColors.background,
 
-      // AppBar: transparan, teks gelap, tanpa shadow, terpusat
+      // AppBar: transparan, teks gelap, tanpa shadow
       appBarTheme: AppBarTheme(
         backgroundColor: AppColors.background,
         foregroundColor: AppColors.textPrimary,

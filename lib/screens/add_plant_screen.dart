@@ -1,10 +1,17 @@
-﻿import 'package:flutter/material.dart';
+import 'dart:io';
+
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../models/plant_model.dart';
+import '../services/photo_service.dart';
 import '../stores/plant_store.dart';
 import '../widgets/app_widgets.dart';
+
+enum _PhotoOption { gallery, camera, remove }
 
 class AddPlantScreen extends StatefulWidget {
   final PlantModel? plantToEdit;
@@ -31,6 +38,11 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
 
   bool _isSaving = false;
 
+  // ── Foto ─────────────────────────────────────────────────────
+  XFile? _pickedPhoto; // File yang dipilih dari galeri / kamera
+  String? _existingPhotoUrl; // URL foto lama (saat edit)
+  final _photoService = PhotoService();
+
   bool get _isEdit => widget.plantToEdit != null;
 
   @override
@@ -45,6 +57,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
       _fertilizerEnabled = p.fertilizerEnabled;
       _fertilizerInterval = p.fertilizerIntervalDays;
       _lastFertilized = p.lastFertilized;
+      _existingPhotoUrl = p.imagePath; // Simpan URL foto lama
     }
     _waterIntervalController.text = '$_waterInterval';
     _fertilizerIntervalController.text = '$_fertilizerInterval';
@@ -59,7 +72,153 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
     super.dispose();
   }
 
-  // ── Simpan ──────────────────────────────────────────────────
+  // ── Tampilkan pilihan sumber foto ────────────────────────────
+  Future<void> _showPhotoOptions() async {
+    final action = await showModalBottomSheet<_PhotoOption>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 12),
+            ListTile(
+              leading: const Icon(
+                Icons.photo_library_rounded,
+                color: AppColors.primary,
+              ),
+              title: Text(
+                'Pilih dari Galeri',
+                style: GoogleFonts.poppins(fontSize: 14),
+              ),
+              onTap: () => Navigator.pop(ctx, _PhotoOption.gallery),
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.camera_alt_rounded,
+                color: AppColors.primary,
+              ),
+              title: Text(
+                'Ambil Foto',
+                style: GoogleFonts.poppins(fontSize: 14),
+              ),
+              onTap: () => Navigator.pop(ctx, _PhotoOption.camera),
+            ),
+            // Tombol hapus foto (hanya tampil jika sudah ada foto)
+            if (_pickedPhoto != null || _existingPhotoUrl != null)
+              ListTile(
+                leading: const Icon(
+                  Icons.delete_outline,
+                  color: AppColors.danger,
+                ),
+                title: Text(
+                  'Hapus Foto',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: AppColors.danger,
+                  ),
+                ),
+                onTap: () => Navigator.pop(ctx, _PhotoOption.remove),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+
+    if (action == _PhotoOption.remove) {
+      setState(() {
+        _pickedPhoto = null;
+        _existingPhotoUrl = null;
+      });
+      return;
+    }
+    if (action == null) return;
+
+    XFile? picked;
+    if (action == _PhotoOption.gallery) {
+      // pickFromGallery() sudah menangani permission Android ≤12 secara internal.
+      picked = await _photoService.pickFromGallery();
+
+      // Jika null: kemungkinan permission ditolak (Android ≤12)
+      if (!mounted) return;
+      if (picked == null) {
+        final permanentlyDenied =
+            await _photoService.isGalleryPermissionPermanentlyDenied();
+        // Hanya tampilkan dialog jika permission benar-benar diperlukan & ditolak
+        if (permanentlyDenied) {
+          await _showPermissionDenied(
+            title: 'Akses galeri diperlukan',
+            message:
+                'Izinkan akses galeri di Pengaturan untuk memilih foto tanaman.',
+            permanentlyDenied: true,
+          );
+        }
+        // Jika bukan karena permission (user cancel), tidak perlu dialog
+        return;
+      }
+    } else {
+      final allowed = await _photoService.requestCameraPermission();
+      if (!allowed) {
+        if (!mounted) return;
+        await _showPermissionDenied(
+          title: 'Akses kamera diperlukan',
+          message:
+              'Izinkan akses kamera untuk mengambil foto tanaman langsung.',
+          permanentlyDenied:
+              await _photoService.isCameraPermissionPermanentlyDenied(),
+        );
+        return;
+      }
+      picked = await _photoService.captureFromCamera();
+    }
+
+    if (!mounted || picked == null) return;
+    setState(() => _pickedPhoto = picked);
+  }
+
+  Future<void> _showPermissionDenied({
+    required String title,
+    required String message,
+    required bool permanentlyDenied,
+  }) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Nanti'),
+          ),
+          if (permanentlyDenied)
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                openAppSettings();
+              },
+              child: const Text('Buka Pengaturan'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // Simpan
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
@@ -75,6 +234,8 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
     final store = PlantStore();
 
     if (!_isEdit) {
+      // ── TAMBAH TANAMAN ─────────────────────────────────────
+      // 1. Insert dulu untuk dapat id_tanaman
       final newPlant = PlantModel(
         id: store.generateId(),
         name: _nameController.text.trim(),
@@ -85,12 +246,57 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
         fertilizerIntervalDays: _fertilizerEnabled ? _fertilizerInterval : 7,
         lastFertilized: _fertilizerEnabled ? _lastFertilized : null,
       );
-      await store.addPlant(newPlant);
+      final insertedPlant = await store.addPlant(newPlant);
+      if (insertedPlant == null) {
+        if (!mounted) return;
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Tanaman gagal disimpan. Periksa koneksi lalu coba lagi.',
+            ),
+          ),
+        );
+        return;
+      }
 
-      if (!mounted) return;
-      setState(() => _isSaving = false);
-      Navigator.pop(context, true);
+      // 2. Upload foto jika ada, lalu update foto_url
+      if (_pickedPhoto != null) {
+        final photoUrl = await store.uploadPlantPhoto(
+          file: _pickedPhoto!,
+          plantId: insertedPlant.id,
+        );
+        if (photoUrl != null) {
+          final updated = insertedPlant.copyWith(imagePath: photoUrl);
+          await store.updatePlant(updated);
+        } else if (mounted) {
+          // Upload gagal — tunjukkan pesan ke pengguna
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Foto gagal diupload. Pastikan bucket "plant-photos" '
+                'sudah dibuat di Supabase Storage sebagai public bucket.',
+              ),
+              duration: Duration(seconds: 5),
+            ),
+          );
+        }
+      }
     } else {
+      // ── EDIT TANAMAN ───────────────────────────────────────
+      String? resolvedPhotoUrl = _existingPhotoUrl;
+
+      // Upload foto baru jika pengguna memilih
+      if (_pickedPhoto != null) {
+        final uploadedUrl = await store.uploadPlantPhoto(
+          file: _pickedPhoto!,
+          plantId: widget.plantToEdit!.id,
+        );
+        if (uploadedUrl != null) {
+          resolvedPhotoUrl = uploadedUrl;
+        }
+      }
+
       final updated = widget.plantToEdit!.copyWith(
         name: _nameController.text.trim(),
         species: _speciesController.text.trim(),
@@ -100,16 +306,98 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
         fertilizerIntervalDays: _fertilizerEnabled ? _fertilizerInterval : 7,
         lastFertilized: _fertilizerEnabled ? _lastFertilized : null,
         clearLastFertilized: !_fertilizerEnabled,
+        // Jika URL null (foto dihapus), clearImagePath akan set null
+        imagePath: resolvedPhotoUrl,
+        clearImagePath: resolvedPhotoUrl == null,
       );
       await store.updatePlant(updated);
-
-      if (!mounted) return;
-      setState(() => _isSaving = false);
-      Navigator.pop(context, true);
     }
+
+    if (!mounted) return;
+    setState(() => _isSaving = false);
+    Navigator.pop(context, true);
   }
 
-  // ── Helper: Label ────────────────────────────────────────────
+  // ── Helper: Preview foto yang dipilih / existing ─────────────
+  Widget _buildPhotoPreview() {
+    // Prioritas: file baru yang baru dipilih > URL foto lama > placeholder
+    if (_pickedPhoto != null) {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.file(File(_pickedPhoto!.path), fit: BoxFit.cover),
+          // Tombol ganti foto di pojok kanan bawah
+          Positioned(
+            right: 8,
+            bottom: 8,
+            child: CircleAvatar(
+              radius: 18,
+              backgroundColor: Colors.black54,
+              child: const Icon(Icons.edit, color: Colors.white, size: 18),
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (_existingPhotoUrl != null) {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.network(
+            _existingPhotoUrl!,
+            fit: BoxFit.cover,
+            loadingBuilder: (_, child, progress) => progress == null
+                ? child
+                : const Center(
+                    child: CircularProgressIndicator(color: AppColors.primary),
+                  ),
+            errorBuilder: (context2, error, stack) => _photoPlaceholder(),
+          ),
+          Positioned(
+            right: 8,
+            bottom: 8,
+            child: CircleAvatar(
+              radius: 18,
+              backgroundColor: Colors.black54,
+              child: const Icon(Icons.edit, color: Colors.white, size: 18),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return _photoPlaceholder();
+  }
+
+  Widget _photoPlaceholder() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(
+          Icons.camera_alt_outlined,
+          size: 36,
+          color: AppColors.textHint,
+        ),
+        const SizedBox(height: AppSpacing.micro),
+        Text(
+          'Tambah Foto Tanaman',
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        Text(
+          'Ketuk untuk pilih dari galeri atau ambil foto',
+          style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textHint),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  // Helper: Label
 
   Widget _buildLabel(
     String text, {
@@ -138,7 +426,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
     );
   }
 
-  // ── Helper: TextField ────────────────────────────────────────
+  // Helper: TextField
 
   Widget _buildTextField({
     required TextEditingController controller,
@@ -345,49 +633,19 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Foto Tanaman Placeholder ────────────────────────
+              // ── Foto Tanaman ────────────────────────────────────
               GestureDetector(
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Fitur foto tanaman akan segera hadir!'),
-                    ),
-                  );
-                },
+                onTap: _showPhotoOptions,
                 child: Container(
                   width: double.infinity,
-                  height: 150,
+                  height: 180,
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(AppRadius.card),
                     border: Border.all(color: AppColors.border),
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.camera_alt_outlined,
-                        size: 36,
-                        color: AppColors.textHint,
-                      ),
-                      const SizedBox(height: AppSpacing.micro),
-                      Text(
-                        'Tambah Foto Tanaman',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      Text(
-                        'Pilih dari galeri atau ambil foto',
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: AppColors.textHint,
-                        ),
-                      ),
-                    ],
-                  ),
+                  clipBehavior: Clip.hardEdge,
+                  child: _buildPhotoPreview(),
                 ),
               ),
 

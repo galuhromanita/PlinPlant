@@ -1,6 +1,7 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../routes.dart';
 import '../widgets/app_widgets.dart';
 
 class SuccessActionScreen extends StatelessWidget {
@@ -64,7 +65,8 @@ class SuccessActionScreen extends StatelessWidget {
               SecondaryButton(
                 label: 'Kembali ke Daftar',
                 onPressed: () =>
-                    Navigator.popUntil(context, (route) => route.isFirst),
+                    Navigator.popUntil(
+                        context, ModalRoute.withName(AppRoutes.home)),
               ),
             ],
           ),

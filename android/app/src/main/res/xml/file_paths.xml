@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    File paths untuk FileProvider (dibutuhkan image_picker saat
+    mengambil foto dari kamera di Android ≤ 10 / SDK 29).
+
+    external-cache-path: lokasi cache eksternal tempat image_picker
+    menyimpan foto sementara sebelum dikembalikan ke aplikasi.
+-->
+<paths>
+    <external-cache-path name="external_cache" path="."/>
+    <external-files-path name="external_files" path="."/>
+    <cache-path name="cache" path="."/>
+    <files-path name="files" path="."/>
+</paths>
+
